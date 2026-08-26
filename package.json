@@ -1,6 +1,6 @@
 {
   "name": "@adrianapan/pikit",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "packageManager": "pnpm@11.18.0",
   "description": "An opinionated Pi agent configuration. Includes: custom theme, plan mode, artifacts, configurable restrictions and a styled UI.",
   "license": "MIT",
@@ -18,9 +18,7 @@
     "pi-package",
     "pi-coding-agent",
     "pi-extension",
-    "pi-skill",
     "pi-theme",
-    "pi-prompt",
     "pi-dev",
     "pikit"
   ],
@@ -28,8 +26,6 @@
     "setup.sh",
     "agent/extensions",
     "agent/themes/slop.json",
-    "agent/skills",
-    "agent/prompts",
     "agent/settings.example.json",
     "agent/APPEND_SYSTEM.md",
     "agent/configs/chat-mode.json",
@@ -43,12 +39,6 @@
   "pi": {
     "extensions": [
       "./agent/extensions/*/index.ts"
-    ],
-    "skills": [
-      "./agent/skills"
-    ],
-    "prompts": [
-      "./agent/prompts"
     ],
     "themes": [
       "./agent/themes/slop.json"

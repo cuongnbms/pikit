@@ -125,7 +125,7 @@ Fields ending in `WithTitle` support the `{title}` placeholder, which is replace
 
 ### Bash patterns (replace-only)
 
-`bashPatterns.safePatterns` and `bashPatterns.destructivePatterns` are **replace-only** — if you provide an array, it entirely replaces the built-in defaults. There is no merge/append. This matches the permission-gate extension's approach.
+`bashPatterns.safePatterns` and `bashPatterns.destructivePatterns` are **replace-only** — if you provide an array, it entirely replaces the built-in defaults. There is no merge/append.
 
 Patterns are case-insensitive regex strings (the `i` flag is applied automatically). Invalid patterns are warned and skipped; if all patterns in an array are invalid, the built-in defaults are used as fallback.
 

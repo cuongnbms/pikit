@@ -81,10 +81,7 @@ Tool results render as a one-line card in the transcript: status icon, title, ki
 
 ## The "when" layer (prompt, not code)
 
-The extension makes artifacts *possible*; instructions decide *when*:
-
-1. **`pr-review` skill** — companion to the `gh` skill. Instructs the agent to gather the PR diff via `gh`, review it, then emit **one markdown artifact** through the `artifact` tool — verdict up top, findings ranked by severity, per-file ` ```diff ` fences — and open it.
-2. **`APPEND_SYSTEM.md`** — one general-case line covering the long tail (reports, diagrams, tables longer than a screen).
+The extension makes artifacts *possible*; instructions decide *when*. `APPEND_SYSTEM.md` contains one general-case instruction covering reports, diagrams, and tables longer than a screen.
 
 Tuning *when* artifacts appear never touches extension code.
 
