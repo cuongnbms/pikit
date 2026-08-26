@@ -8,7 +8,6 @@ import { tokenInSegment, tokenOutSegment, tokenTotalSegment, cacheReadSegment, c
 import { costSegment } from "./cost.js";
 import { contextPctSegment, contextTotalSegment } from "./context.js";
 import { separatorSegment } from "./separator.js";
-import { cavemanSegment } from "./caveman.js";
 import { planModeSegment } from "./plan-mode.js";
 import { chatModeSegment } from "./chat-mode.js";
 
@@ -27,7 +26,6 @@ const SEGMENTS = {
   cache_read: cacheReadSegment,
   cache_write: cacheWriteSegment,
   separator: separatorSegment,
-  caveman: cavemanSegment,
   plan_mode: planModeSegment,
   chat_mode: chatModeSegment,
 };

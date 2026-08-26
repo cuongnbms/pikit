@@ -45,9 +45,9 @@ agent/extensions/<name>/
 ### Code conventions
 
 - Export single default function receiving `ExtensionAPI` — no classes, no extra exports
-- Reference existing extensions: `web-access/index.ts` (tool registration), `startup/index.ts` (lifecycle), `permission-gate/index.ts` (interception)
+- Reference existing extensions: `startup/index.ts` (lifecycle), `permission-gate/index.ts` (interception)
 - Match TypeScript style of file being edited — no new patterns
-- Opening a URL in the default browser — use the `mcp/helpers.ts` `openBrowser` pattern: `spawn(cmd, args, { detached: true, stdio: "ignore" }).unref()` with `[cmd, args]` = `open [url]` (darwin) / `rundll32 ["url.dll,FileProtocolHandler", url]` (win32 — `start` is a cmd.exe built-in and cannot be spawned directly) / `xdg-open [url]` (linux). No shell, no `exec` string concatenation. See `agent/extensions/mcp/helpers.ts`
+- Opening a URL in the default browser: `spawn(cmd, args, { detached: true, stdio: "ignore" }).unref()` with `[cmd, args]` = `open [url]` (darwin) / `rundll32 ["url.dll,FileProtocolHandler", url]` (win32 — `start` is a cmd.exe built-in and cannot be spawned directly) / `xdg-open [url]` (linux). No shell, no `exec` string concatenation.
 - One concern per extension
 
 ### Import ordering

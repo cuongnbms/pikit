@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/4e41c2f5-0702-404c-97ae-487ce52970dc
 pi prioritizes flexibility. Extensions should be able to modify almost everything—skills, prompts, themes, even other extensions. This extension enforces **minimal, focused restrictions** on only the highest-risk vectors:
 
 1. **`auth.json`** — credentials and API keys. Blocks all access to prevent accidental leakage.
-2. **Secret config files** — `.env`, `mcp.json`, `auth.json`. Blocks both file tool access and bash commands that reference these paths.
+2. **Secret config files** — `.env` and `auth.json`. Blocks both file tool access and bash commands that reference these paths.
 3. **Dangerous bash commands** — handled by the `permission-gate` extension, not this one. Blocks `rm -rf`, `sudo`, `chmod 777`, etc.
 
 Everything else is fair game. **The agent is trusted to shape pi according to your needs.** The infrastructure (credentials, system integrity) is protected, but avoid pasting secrets directly into conversations—treat them like any other tool (Claude, ChatGPT, etc.).
@@ -66,8 +66,7 @@ cp ~/.pi/agent/extensions/protected-paths/protected-paths.example.json \
     { "path": ".env",                         "deny": ["read", "write", "edit", "bash"] },
     { "path": ".git/",                         "deny": ["read", "write", "edit"] },
     { "path": "node_modules/",                 "deny": ["write", "edit"] },
-    { "path": "~/.pi/agent/auth.json",         "deny": ["read", "write", "edit", "bash"] },
-    { "path": "~/.pi/agent/configs/mcp.json",  "deny": ["write", "edit"] }
+    { "path": "~/.pi/agent/auth.json",         "deny": ["read", "write", "edit", "bash"] }
   ]
 }
 ```

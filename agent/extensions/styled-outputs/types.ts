@@ -73,8 +73,6 @@ export interface ToolGeneralUserConfig {
 
 export interface ToolGroupsUserConfig {
   base?: ToolGeneralUserConfig;
-  mcp?: ToolGeneralUserConfig;
-  web?: ToolGeneralUserConfig;
   custom?: ToolGeneralUserConfig;
 }
 

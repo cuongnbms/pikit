@@ -9,7 +9,6 @@
  *   ~/.pi/agent/configs/.env
  *
  * Config format:
- *   SLACK_MCP_TOKEN=xoxp-...
  *   GITHUB_TOKEN=ghp-...
  *
  * Use /env to inspect loaded key names (values are never shown).
@@ -20,7 +19,7 @@ import { loadEnvFile } from "./loader.js";
 
 export default function envLoaderExtension(pi: ExtensionAPI) {
   // Load synchronously — runs before session_start, before any other extension
-  // that needs these vars (e.g. mcp) tries to use them.
+  // that needs these vars tries to use them.
   const result = loadEnvFile();
 
   // Surface file read errors as a notification once the UI is ready.

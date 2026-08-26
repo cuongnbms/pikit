@@ -20,11 +20,9 @@
 ```
 agent/
 ├── configs/
-│   ├── caveman.json             # Caveman default level — gitignored, auto-created on first use
 │   ├── chat-mode.json           # Chat mode settings (tracked)
 │   ├── plan-mode.json           # Plan mode settings (tracked)
 │   ├── footer.json              # Footer segment configuration — gitignored, see footer/footer.example.json
-│   ├── mcp.json                 # MCP server config — gitignored, see mcp/mcp.example.json
 │   ├── permission-gate.json     # Permission gate patterns — gitignored, see permission-gate.example.json
 │   ├── protected-paths.json     # Protected path entries — gitignored, see protected-paths.example.json
 │   └── .env                     # Secret env vars — gitignored, see env-loader/.env.example
@@ -42,20 +40,15 @@ agent/
 │   └── slop.json                # Custom warm color theme
 └── extensions/
     ├── chat-input/              # Unicode box border around the main chat input editor
-    ├── caveman/                 # Compresses LLM responses: lite (professional) / full (caveman) / ultra (max compression)
     ├── env-loader/              # Injects .env tokens into process.env at startup
     ├── footer/                  # Status bar with git, tokens, cost, context
-    ├── mcp/                     # MCP server bridge with lazy connections and proxy tool
     ├── plan-mode/               # Plan-then-execute workflow: read-only planning, then execute with plan_complete
     ├── chat-mode/               # Read-only conversational mode: chat, explore, search — no edits
     ├── permission-gate/         # Confirms dangerous bash commands before running
     ├── protected-paths/         # Blocks read/write access to sensitive files and directories
-    ├── llm-council/             # Multi-model council: members answer independently, chairman synthesises
     ├── spinners/                # Rotating spinner verbs while the agent thinks
     ├── startup/                 # Welcome header shown at session start
     ├── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
-    ├── subagents/               # Delegate tasks to specialized child agents (single, parallel, chain)
-    ├── web-access/              # Web search, page fetching, and PDF extraction
     └── artifacts/               # Visual HTML artifacts (markdown/html) on a lazy localhost server with live reload
 ```
 
@@ -135,8 +128,6 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 
 * **plan-mode** — Adds a `/plan` workflow. Restricts tools to read-only mode while the LLM drafts a structured execution roadmap, then unlocks full capabilities once execution begins. → [`README`](agent/extensions/plan-mode/README.md)
 * **chat-mode** — Toggled via `/chat` or `Ctrl+Shift+C`. Locks the filesystem to read-only so you can freely discuss, search, and parse code without risk of accidental changes. → [`README`](agent/extensions/chat-mode/README.md)
-* **subagents** — Delegates isolated tasks to background `pi` subprocesses. Supports running single tasks, parallel batches, or piped execution chains. → [`README`](agent/extensions/subagents/README.md)
-* **llm-council** — Runs questions across a parallel panel of distinct models, then passes their independent findings to a chairman model to synthesize a final answer. → [`README`](agent/extensions/llm-council/README.md)
 
 ### UI & UX
 
@@ -154,10 +145,7 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 
 ### Integrations & Tweaks
 
-* **mcp** — A lazy-loading Model Context Protocol bridge. Instead of taxing initialization speeds by parsing all schemas on boot, it exposes tools on demand. → [`README`](agent/extensions/mcp/README.md)
-* **web-access** — Adds live search summaries through the Gemini API and extracts clean markdown formatting from remote URLs and PDF files. → [`README`](agent/extensions/web-access/README.md)
 * **env-loader** — Automatically injects custom `.env` variables into the agent's process context at boot, keeping key management out of global shell files. → [`README`](agent/extensions/env-loader/README.md)
-* **caveman** — Strips away polite conversational filler from the model's output. Features three target tiers: `lite` (concise prose), `full` (prehistoric grunt), and `ultra` (max token compression). → [`README`](agent/extensions/caveman/README.md)
 
 ---
 

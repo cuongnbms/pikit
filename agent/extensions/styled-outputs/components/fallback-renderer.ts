@@ -9,7 +9,7 @@ import {
   formatExpandedLines,
 } from "./tool-shared.js";
 
-const MCP_TITLE_COLOR = groupTitleColor("mcp");
+const FALLBACK_TITLE_COLOR = groupTitleColor("custom");
 
 function argsSummary(args: any): string {
   if (!args || typeof args !== "object" || !Object.keys(args).length) return "";
@@ -26,17 +26,17 @@ function argsSummary(args: any): string {
   }
 }
 
-export function renderMcpCall(toolName: string, args: any, theme: Theme, ctx: any): Component {
+export function renderFallbackCall(toolName: string, args: any, theme: Theme, ctx: any): Component {
   const summary = applyColor(theme, CONFIG.tools.general.summaryColor, argsSummary(args));
   if (ctx.isPartial) {
     const frame = ensureSpinner(ctx);
-    return makeText(ctx.lastComponent, toolHeader(toolName, summary, theme, spinnerDot(theme, frame), undefined, MCP_TITLE_COLOR) + "\n" + renderPartial(theme));
+    return makeText(ctx.lastComponent, toolHeader(toolName, summary, theme, spinnerDot(theme, frame), undefined, FALLBACK_TITLE_COLOR) + "\n" + renderPartial(theme));
   }
   clearSpinner(ctx);
-  return makeText(ctx.lastComponent, toolHeader(toolName, summary, theme, undefined, ctx.isError, MCP_TITLE_COLOR));
+  return makeText(ctx.lastComponent, toolHeader(toolName, summary, theme, undefined, ctx.isError, FALLBACK_TITLE_COLOR));
 }
 
-export function renderMcpResult(toolName: string, result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+export function renderFallbackResult(toolName: string, result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
   const text = getFirstTextContent(result);
   const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
 

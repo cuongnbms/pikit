@@ -77,8 +77,6 @@
     },
     "groups": {
       "base": {},
-      "mcp": {},
-      "web": {},
       "custom": {}
     }
   }

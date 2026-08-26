@@ -90,4 +90,4 @@ Tuning *when* artifacts appear never touches extension code.
 
 ## Dependencies
 
-Three runtime deps — `marked`, `diff2html`, `highlight.js` — each the de-facto standard in its lane, plus one CDN script for mermaid fences only. All rendering happens at write time; everything is viewable offline except mermaid artifacts. Deps are lockfile-tracked and auditable (declared in the root `pikit` package, same pattern as `web-access`), not checked-in min.js blobs. diff2html's stylesheet is read from the installed package at load time; all other CSS is authored in `styles.ts`.
+Three runtime deps — `marked`, `diff2html`, `highlight.js` — each the de-facto standard in its lane, plus one CDN script for mermaid fences only. All rendering happens at write time; everything is viewable offline except mermaid artifacts. Deps are lockfile-tracked and auditable (declared in the root `pikit` package), not checked-in min.js blobs. diff2html's stylesheet is read from the installed package at load time; all other CSS is authored in `styles.ts`.

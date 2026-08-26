@@ -1,6 +1,6 @@
 # styled-outputs
 
-Custom styled rendering for every message type in pi — assistant messages, user messages, thinking blocks, tool executions, skill invocations, and MCP tools. Replaces the default flat output with prefix icons, colour-coded diffs, expandable sections, grouped tool configs, and per-tool-type rendering.
+Custom styled rendering for every message type in pi — assistant messages, user messages, thinking blocks, tool executions, skill invocations, and custom tools. Replaces the default flat output with prefix icons, colour-coded diffs, expandable sections, grouped tool configs, and per-tool-type rendering.
 
 https://github.com/user-attachments/assets/6bcf414f-9114-405e-af9e-392a8f4e8bdc
 
@@ -10,13 +10,13 @@ https://github.com/user-attachments/assets/6bcf414f-9114-405e-af9e-392a8f4e8bdc
 - **Assistant messages** — Prefixed lines with configurable icon and colour
 - **User messages** — Prefixed with custom icon; optional theme background toggle
 - **Thinking blocks** — Animated prefix with optional label ("Thinking:"); continuation lines align to prefix width, not the label
-- **Tool executions** — Custom call/result renderers for `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, web tools, and MCP tools
+- **Tool executions** — Custom call/result renderers for `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, and custom tools
 - **Diff viewer** — Side-by-side-style diff highlighting for `edit` and `write` with added/removed/context colours; skips oversized files (configurable threshold)
 - **Skill invocations** — Expandable skill blocks with prefix icon, title, and content
 - **Custom messages** — Expandable custom messages with prefix icon, type name, and content; all custom messages get styled output regardless of registered renderers
 - **Tool spinner** — Animated character spinner while tools are running
 - **Bash execution** — `!` commands styled as `Command`, `!!` commands styled as `Shell` (no context); error prefix swaps to `✗`
-- **Group-aware config** — Override any general tool setting per group (`base`, `mcp`, `web`, `custom`); unset properties fall through to `general`
+- **Group-aware config** — Override any general tool setting per group (`base`, `custom`); unset properties fall through to `general`
 - **Theme-aware colours** — All colour fields accept pi theme tokens (`"accent"`, `"dim"`, etc.) or hex values (`"#ff6347"`)
 - **Expand/collapse** — Tool outputs and skill blocks collapse by default; expand with a keypress
 
@@ -143,17 +143,15 @@ Any `tools.general` key can be overridden per group. Unset properties fall throu
 | Key | Description |
 |-----|-------------|
 | `tools.groups.base` | Built-in tool renderers (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`) |
-| `tools.groups.mcp` | MCP tool renderers |
-| `tools.groups.web` | Web tool renderers (`web_search`, `fetch_content`, `get_search_content`) |
-| `tools.groups.custom` | Any other tool |
+| `tools.groups.custom` | Any other (custom) tool |
 
-Example — give MCP tools a different title colour and expanded line limit:
+Example — give custom tools a different title colour and expanded line limit:
 
 ```json
 {
   "tools": {
     "groups": {
-      "mcp": {
+      "custom": {
         "titleColor": "#c07898",
         "maxExpandedLines": 20
       }
@@ -177,7 +175,7 @@ The extension patches pi's built-in message components (`AssistantMessage`, `Use
 
 For `BashExecutionComponent`, the extension listens to the `user_bash` event to determine whether a command is `!` (Command) or `!!` (Shell), then patches `updateDisplay` to strip borders and apply the styled header/status/output format.
 
-Tool renderers are registered via `pi.registerTool()` for built-in tools (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`) — each with custom call and result renderers. For web tools and MCP tools, the extension patches `getCallRenderer` / `getResultRenderer` to provide specialised renderers when no built-in renderer exists.
+Tool renderers are registered via `pi.registerTool()` for built-in tools (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`) — each with custom call and result renderers. For any other tool, the extension patches `getCallRenderer` / `getResultRenderer` to provide a fallback renderer when no built-in renderer exists.
 
 All rendering uses factory functions + closures (no classes). Derived values like prefix widths and padding are computed from config — change a prefix icon and the alignment adjusts automatically.
 
@@ -197,8 +195,7 @@ styled-outputs/
     ├── skill-message.ts    # Skill invocation renderer
     ├── custom-message.ts   # Custom message renderer
     ├── base-renderer.ts    # Built-in tool call/result renderers
-    ├── mcp-renderer.ts     # MCP tool call/result renderers
-    ├── web-renderer.ts     # Web tool call/result renderers
+    ├── fallback-renderer.ts # Fallback call/result renderer for unknown tools
     ├── markdown-result.ts  # Shared markdown result renderer
     └── tool-shared.ts      # Group config resolution, spinner, branch/indent helpers
 ```

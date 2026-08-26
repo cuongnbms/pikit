@@ -11,7 +11,7 @@ A customizable two-row footer for the pi coding agent. Provides a rich status ba
 Row 1 left:  π | <model name> (<provider>) | <folder> <path> <branch> <dirty>
 Row 1 right: <context bar> <pct%> / <max tokens>
 
-Row 2 left:  Thinking: <LEVEL> | Caveman mode: <VALUE> | Plan mode: <VALUE> | Chat mode: <VALUE>
+Row 2 left:  Thinking: <LEVEL> | Plan mode: <VALUE> | Chat mode: <VALUE>
 Row 2 right: T: <total> (<cached> cached) ↑ <in> ↓ <out> | $<cost>
 ```
 
@@ -22,7 +22,6 @@ Row 2 right: T: <total> (<cached> cached) ↑ <in> ↓ <out> | $<cost>
 - **Git integration**: Shows current branch and working tree status (staged, unstaged, untracked)
 - **Token tracking**: Composite `T:` line with total, cached, input, and output counts
 - **Thinking level**: Faint label + CAPS level name with per-level colour
-- **Caveman mode indicator**: Shows active caveman mode when the caveman extension is loaded
 - **Nerd Font support**: Automatic detection with ASCII fallbacks
 - **Live updates**: Git status refreshes automatically as you work
 
@@ -35,7 +34,7 @@ left and right segments are configured independently:
 {
   "row1LeftSegments":  ["pi", "separator", "model", "separator", "path", "git"],
   "row1RightSegments": ["context_pct"],
-  "row2LeftSegments":  ["thinking", "separator", "caveman", "separator", "plan_mode", "separator", "chat_mode"],
+  "row2LeftSegments":  ["thinking", "separator", "plan_mode", "separator", "chat_mode"],
   "row2RightSegments": ["token_total", "separator", "cost"],
 
   "colors": {
@@ -69,7 +68,6 @@ See `footer.example.json` in this directory for a full annotated example.
 | `context_pct` | Gradient bar + `X.X%` + max tokens | Bar fully configurable via `segmentOptions.contextBar` (see below). % and max tokens use `contextLabel` colour. Max tokens formatted with K/M suffix (e.g. `128k`, `2M`). Set `DEBUG_PCT` in `context.ts` to a number (0–100) to pin the bar at a fixed value for visual testing. |
 | `cost` | `$<amount>` | `$` dim, amount in `cost` colour (`muted` by default) |
 | `thinking` | `Thinking: <LEVEL>` | Dim label, CAPS level with per-level colour; always visible |
-| `caveman` | `Caveman mode: <MODE>` | Hidden when caveman extension not loaded |
 | `plan_mode` | `Plan mode: <MODE>` | Hidden when plan-mode extension not loaded |
 | `chat_mode` | `Chat mode: <MODE>` | Hidden when chat-mode extension not loaded |
 | `token_total` | `T: <total> (<cached> cached) ↑ <in> ↓ <out>` | Labels dim, numbers in `tokens` colour (`muted` by default) |

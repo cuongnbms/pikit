@@ -188,8 +188,6 @@ export const CONFIG = {
     },
     groups: {
       base: userConfig.tools?.groups?.base ?? {},
-      mcp: userConfig.tools?.groups?.mcp ?? {},
-      web: userConfig.tools?.groups?.web ?? {},
       custom: userConfig.tools?.groups?.custom ?? {},
     },
   },

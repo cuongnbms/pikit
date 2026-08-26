@@ -223,7 +223,7 @@ export default function footer(pi: ExtensionAPI) {
       footerDataRef = footerData;
       tuiRef = tui;
 
-      // Expose a re-render trigger for out-of-turn state changes (e.g. /caveman toggle).
+      // Expose a re-render trigger for out-of-turn state changes (e.g. mode toggles).
       (globalThis as Record<string, unknown>).__footerRequestRender = () => tui.requestRender();
 
       // Subscribe to branch changes for re-render

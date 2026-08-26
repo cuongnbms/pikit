@@ -58,7 +58,7 @@ const DEFAULT_DESTRUCTIVE_PATTERNS: RegExp[] = [
 
 /** System prompt injected when in CHAT mode. */
 export const CHAT_MODE_PROMPT = `\
-**SUPERSEDES ALL OTHER BEHAVIOR INSTRUCTIONS.** This overrides any role or style directives (e.g. caveman, roleplay, tone modifiers). The constraints below take absolute priority.
+**SUPERSEDES ALL OTHER BEHAVIOR INSTRUCTIONS.** This overrides any role or style directives (e.g. roleplay, tone modifiers). The constraints below take absolute priority.
 
 You are in CHAT MODE. You have read-only access — you may read files, search code, run safe inspection commands, and search the web to answer, discuss, and explore. Converse naturally — answer questions, explain, brainstorm, look things up.
 

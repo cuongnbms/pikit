@@ -7,7 +7,7 @@ A startup header for the pi coding agent. Displays a three-column welcome box at
 ## Features
 
 - **Pi logo**: ASCII art rendered in the accent colour
-- **Loaded counts**: Reports how many extensions, skills, MCP configs, prompt templates, and context files are active
+- **Loaded counts**: Reports how many extensions, skills, prompt templates, and context files are active
 - **Quick tips**: Inline keyboard shortcut reminders
 - **Version banner**: Agent version shown in the top border
 - **Responsive layout**: Box adapts to terminal width; hidden below 44 columns
@@ -18,7 +18,7 @@ A startup header for the pi coding agent. Displays a three-column welcome box at
 | Column | Content |
 |--------|---------|
 | Left | Pi ASCII art logo |
-| Centre | Counts of extensions, skills, MCP configs, prompt templates, and context files |
+| Centre | Counts of extensions, skills, prompt templates, and context files |
 | Right | Keyboard shortcuts |
 
 ## Loaded counts discovery
@@ -32,7 +32,6 @@ The extension counts what is active via pi's command registry and standard pi pa
 | Extensions | `~/.pi/agent/settings.json`, `<cwd>/.pi/settings.json` (each package's `package.json` `pi.extensions` manifest — glob-expanded, with `!`/`+`/`-` overrides — under `npm/node_modules/<name>` and `git/<host>/<path>`, user + project scope; packages with no manifest fall back to a convention `extensions/` dir; object-form entries may additionally filter via an `extensions` array, where `[]` disables all), plus local dirs `~/.pi/agent/extensions/`, `<cwd>/.pi/extensions/`, `<cwd>/extensions/` (smart discovery: flat `.ts`/`.js` files and `index.ts` subdirs, mirroring pi's `collectAutoExtensionEntries`) |
 | Skills | pi command registry — `pi.getCommands()` with `source: "skill"` (local + package-installed) |
 | Prompt templates | pi command registry — `pi.getCommands()` with `source: "prompt"` (local + package-installed) |
-| MCP servers | `~/.pi/agent/configs/mcp.json` |
 
 ## Icons
 

@@ -47,7 +47,6 @@ export type StatusLineSegmentId =
   | "cache_read"
   | "cache_write"
   | "thinking"
-  | "caveman"
   | "plan_mode"
   | "chat_mode"
   | "separator"

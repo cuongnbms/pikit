@@ -306,7 +306,6 @@ export interface LoadedCounts {
   extensions: number;
   skills: number;
   promptTemplates: number;
-  mcpServers: number;
 }
 
 function countContextFiles(homeDir: string, cwd: string): number {
@@ -415,18 +414,6 @@ function countModels(homeDir: string, cwd: string): number {
   return seen.size;
 }
 
-function countMcpServers(homeDir: string): number {
-  const configPath = join(homeDir, ".pi", "agent", "configs", "mcp.json");
-  if (!existsSync(configPath)) return 0;
-  try {
-    const cfg = JSON.parse(readFileSync(configPath, "utf-8"));
-    if (cfg?.mcpServers && typeof cfg.mcpServers === "object") {
-      return Object.keys(cfg.mcpServers).length;
-    }
-  } catch {}
-  return 0;
-}
-
 export function discoverLoadedCounts(commands: CommandLike): LoadedCounts {
   const homeDir = osHomedir();
   const cwd = process.cwd();
@@ -436,6 +423,5 @@ export function discoverLoadedCounts(commands: CommandLike): LoadedCounts {
     extensions: countExtensions(homeDir, cwd),
     skills: countSkills(commands),
     promptTemplates: countTemplates(commands),
-    mcpServers: countMcpServers(homeDir),
   };
 }
