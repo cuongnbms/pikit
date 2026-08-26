@@ -1,0 +1,18 @@
+# pnpm settings for this repo (single package — no `packages:` key needed).
+#
+# minimumReleaseAge: refuse to install any package version published less than
+# N minutes ago. 10080 = 7 days. Guards against freshly-published compromised
+# releases, which are typically yanked within a day or two.
+#
+# Escape hatch: add "<pkg>@<version>" entries to minimumReleaseAgeExclude when
+# you genuinely need a version that was just published.
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: []
+
+# pnpm blocks dependency install scripts by default. Both of these are
+# transitive dev-only deps whose build steps aren't needed for `pnpm check`
+# (tsc --noEmit), so they stay unbuilt. Declaring them silences
+# ERR_PNPM_IGNORED_BUILDS, which pnpm otherwise raises as a hard error.
+allowBuilds:
+  '@google/genai': false
+  protobufjs: false

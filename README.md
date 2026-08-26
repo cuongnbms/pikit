@@ -103,13 +103,28 @@ Flag | Description |
 
 ### Cloning the repo?
 
-If you decide to clone the repo directly into your `~/.pi` folder instead of installing it via `pi install`, you'll need to run `npm i` to install the deps.
+If you decide to clone the repo directly into your `~/.pi` folder instead of installing it via `pi install`, you'll need to install the deps. This repo uses [pnpm](https://pnpm.io/).
 
 ```bash
 git clone git@github.com:adrianapan/pikit.git
 cd ~/.pi
-npm i
+pnpm install
 ```
+
+> Only local development uses pnpm. End users installing via `pi install npm:@adrianapan/pikit` are unaffected — Pi still installs the published package with npm.
+
+#### Minimum release age
+
+`pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (10080 minutes = **7 days**). pnpm refuses to install any package version published less than a week ago, so a compromised release has time to be caught and yanked before it can land in the lockfile.
+
+The practical effect: `pnpm add foo@latest` resolves to the newest version that is at least 7 days old, not to whatever was published this morning. If you genuinely need a fresher version, add it to `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`:
+
+```yaml
+minimumReleaseAgeExclude:
+  - 'some-package@1.2.3'
+```
+
+The same file also carries an `allowBuilds` block — pnpm blocks dependency install scripts by default, and the two transitive dev-only entries listed there are deliberately left unbuilt.
 
 ---
 
