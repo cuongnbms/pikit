@@ -11,7 +11,7 @@ const DEFAULT_ROW2_LEFT: StatusLineSegmentId[] = ["thinking", "separator", "plan
 const DEFAULT_ROW2_RIGHT: StatusLineSegmentId[] = ["token_total", "separator", "cost"];
 
 const DEFAULT_SEGMENT_OPTIONS: StatusLineSegmentOptions = {
-  path: { mode: "full" },
+  path: { mode: "basename" },
   git: {
     showBranch: true,
     showStaged: true,
