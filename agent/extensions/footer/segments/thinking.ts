@@ -1,16 +1,6 @@
 import type { RenderedSegment, SegmentContext, SemanticColor } from "../types.js";
 import { applyColor, rainbow } from "../theme.js";
 
-const LEVEL_CAPS: Record<string, string> = {
-  off: "OFF",
-  minimal: "MINIMAL",
-  low: "LOW",
-  medium: "MEDIUM",
-  high: "HIGH",
-  xhigh: "EXTRA HIGH",
-  max: "MAX",
-};
-
 const LEVEL_COLOR_KEY: Record<string, SemanticColor> = {
   off: "thinkingOff",
   minimal: "thinkingMinimal",
@@ -35,8 +25,7 @@ export const thinkingSegment = {
   render(ctx: SegmentContext): RenderedSegment {
     const level = ctx.thinkingLevel || "off";
 
-    const label = applyColor(ctx.theme, "dim", "Thinking:");
-    const text = LEVEL_CAPS[level] || level.toUpperCase();
+    const text = level.toLowerCase();
 
     const colorKey = LEVEL_COLOR_KEY[level];
     const configured = colorKey !== undefined ? ctx.colors[colorKey] : undefined;
@@ -46,6 +35,6 @@ export const thinkingSegment = {
     const useRainbow = !configured && (level === "xhigh" || level === "max");
     const coloredText = useRainbow ? rainbow(text) : applyColor(ctx.theme, textColor as any, text);
 
-    return { content: `${label} ${coloredText}`, visible: true };
+    return { content: coloredText, visible: true };
   },
 };

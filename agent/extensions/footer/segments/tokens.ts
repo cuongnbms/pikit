@@ -15,11 +15,13 @@ export const tokenTotalSegment = {
   render(ctx: SegmentContext): RenderedSegment {
     const { input, output, cacheRead, cacheWrite } = ctx.usageStats;
     const total = input + output + cacheRead + cacheWrite;
-    const cached = cacheRead + cacheWrite;
+    const cacheableInput = input + cacheRead + cacheWrite;
+    const cacheHitPercent = cacheableInput > 0 ? (cacheRead / cacheableInput) * 100 : 0;
 
     const content =
       lbl(ctx, "T:") + " " + val(ctx, formatTokens(total)) +
-      " " + lbl(ctx, "(") + val(ctx, formatTokens(cached)) + lbl(ctx, " cached)") +
+      " " + lbl(ctx, "(") + val(ctx, formatTokens(cacheRead)) + lbl(ctx, " cached, ") +
+      val(ctx, `${cacheHitPercent.toFixed(1)}%`) + lbl(ctx, " hit)") +
       " " + lbl(ctx, "↑") + " " + val(ctx, formatTokens(input)) +
       " " + lbl(ctx, "↓") + " " + val(ctx, formatTokens(output));
 

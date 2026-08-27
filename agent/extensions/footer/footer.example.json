@@ -1,10 +1,8 @@
 {
   "_comment": "Place this file at ~/.pi/agent/configs/footer.json",
-  "row1LeftSegments": ["pi", "separator", "model", "separator", "path", "git"],
+  "row1LeftSegments": ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"],
   "row1RightSegments": ["context_pct"],
   "row2LeftSegments": [
-    "thinking",
-    "separator",
     "plan_mode",
     "separator",
     "chat_mode"
