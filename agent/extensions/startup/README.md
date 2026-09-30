@@ -8,7 +8,7 @@ A startup header for the pi coding agent. Displays a three-column welcome box at
 
 - **Pi logo**: ASCII art rendered in the accent colour
 - **Loaded counts**: Reports how many extensions, skills, prompt templates, and context files are active
-- **Quick tips**: Inline keyboard shortcut reminders
+- **Quick tips**: Command and bash input reminders, plus model and thinking shortcuts
 - **Version banner**: Agent version shown in the top border
 - **Responsive layout**: Box adapts to terminal width; hidden below 44 columns
 - **Nerd Font icons**: Uses Nerd Font glyphs where available, falls back to plain Unicode symbols automatically

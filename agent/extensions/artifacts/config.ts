@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** Directory for artifact files, relative to project root (mirrors plan-mode's .pi/plans). */
+/** Directory for artifact files, relative to project root. */
 export const ARTIFACT_DIR = ".pi/artifacts";
 
 /** Server bind host — localhost-only, never exposed externally. */

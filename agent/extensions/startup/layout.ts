@@ -23,22 +23,16 @@ function buildLeftColumn(theme: Theme, colWidth: number): string[] {
 export interface KeyMap {
   "app.model.cycleForward": string;
   "app.thinking.cycle": string;
-  "chat-mode.toggle": string;
-  "plan-mode.toggle": string;
 }
 
 function buildTipsColumn(theme: Theme, keyMap: KeyMap): string[] {
   const dim = (s: string) => theme.fg("dim", s);
   const modelKey = keyMap["app.model.cycleForward"];
   const thinkingKey = keyMap["app.thinking.cycle"];
-  const chatKey = keyMap["chat-mode.toggle"];
-  const planKey = keyMap["plan-mode.toggle"];
   return [
     "",
     ` ${dim("/")} for commands`,
     ` ${dim("!")} to run bash`,
-    ` ${dim(chatKey)} toggle chat mode`,
-    ` ${dim(planKey)} toggle plan mode`,
     ` ${dim(modelKey)} cycle model`,
     ` ${dim(thinkingKey)} cycle thinking`,
   ];

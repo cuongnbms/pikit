@@ -2,7 +2,7 @@
   "name": "@adrianapan/pikit",
   "version": "1.1.11",
   "packageManager": "pnpm@11.18.0",
-  "description": "An opinionated Pi agent configuration. Includes: custom theme, plan mode, artifacts, configurable restrictions and a styled UI.",
+  "description": "An opinionated Pi agent configuration. Includes: custom theme, artifacts and a styled UI.",
   "license": "MIT",
   "author": "Adrian Apan",
   "repository": {
@@ -28,8 +28,6 @@
     "agent/themes/slop.json",
     "agent/settings.example.json",
     "agent/APPEND_SYSTEM.md",
-    "agent/configs/chat-mode.json",
-    "agent/configs/plan-mode.json",
     "README.md"
   ],
   "scripts": {

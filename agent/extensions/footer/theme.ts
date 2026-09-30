@@ -23,7 +23,6 @@ const DEFAULT_COLORS: ColorScheme = {
   cost: "muted",
   tokens: "muted",
   separator: "#4e4c49",
-  modeIndicator: "muted",
 };
 
 function isHexColor(color: ColorValue): color is `#${string}` {

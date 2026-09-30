@@ -14,7 +14,6 @@
 # Usage:
 #   bash setup.sh                 # scaffold everything
 #   bash setup.sh --keybindings   # only keybindings.json
-#   bash setup.sh --modes         # only chat-mode/plan-mode presets
 #   bash setup.sh --settings --system-prompt
 #   bash setup.sh --help
 
@@ -28,7 +27,6 @@ SRC="${SCRIPT_DIR}/agent"
 AGENT_DIR="${HOME}/.pi/agent"
 mkdir -p "$AGENT_DIR"
 AGENT_DIR=$(cd "$AGENT_DIR" && pwd -P)   # canonical, for the src===dest guard
-CONFIGS_DIR="${AGENT_DIR}/configs"
 BAK_DIR="${AGENT_DIR}/_bak"
 
 # --- kit-owned keybindings forced into ~/.pi/agent/keybindings.json ---------
@@ -41,7 +39,6 @@ KB_VALS=("ctrl+shift+m" "ctrl+shift+t")
 
 RUN_SETTINGS=0
 RUN_SYSTEM_PROMPT=0
-RUN_MODES=0
 RUN_KEYBINDINGS=0
 
 usage() {
@@ -54,11 +51,10 @@ Usage:
 Flags:
   --settings          Sync settings.json (theme: "slop")
   --system-prompt     Sync APPEND_SYSTEM.md
-  --modes             Sync configs/chat-mode.json + configs/plan-mode.json
   --keybindings       Sync keybindings.json (the two Pikit keybinds)
   --help, -h          Show this help
 
-No flag runs every job, in order: settings, system-prompt, modes, keybindings.
+No flag runs every job, in order: settings, system-prompt, keybindings.
 Existing files are backed up to ~/.pi/agent/_bak/ before being replaced;
 already-correct files are skipped, so re-running is safe.
 EOF
@@ -68,17 +64,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --settings)         RUN_SETTINGS=1; shift ;;
     --system-prompt)    RUN_SYSTEM_PROMPT=1; shift ;;
-    --modes)            RUN_MODES=1; shift ;;
     --keybindings)      RUN_KEYBINDINGS=1; shift ;;
     --help|-h)          usage; exit 0 ;;
     *)                  echo "Unknown flag: $1" >&2; echo "Run 'bash setup.sh --help'." >&2; exit 1 ;;
   esac
 done
 
-if [[ $RUN_SETTINGS -eq 0 && $RUN_SYSTEM_PROMPT -eq 0 && $RUN_MODES -eq 0 && $RUN_KEYBINDINGS -eq 0 ]]; then
+if [[ $RUN_SETTINGS -eq 0 && $RUN_SYSTEM_PROMPT -eq 0 && $RUN_KEYBINDINGS -eq 0 ]]; then
   RUN_SETTINGS=1
   RUN_SYSTEM_PROMPT=1
-  RUN_MODES=1
   RUN_KEYBINDINGS=1
 fi
 
@@ -177,26 +171,6 @@ syncAppendSystem() {
   notes+=("updated|APPEND_SYSTEM.md|reloaded additional system prompt")
 }
 
-# configs/chat-mode.json + plan-mode.json: copy ours if absent, skip if present.
-syncModeConfigs() {
-  mkdir -p "$CONFIGS_DIR"
-  local name desc src dest
-  for name in chat-mode.json plan-mode.json; do
-    case "$name" in
-      chat-mode.json) desc="added chat-mode shortcut: shift+tab" ;;
-      plan-mode.json) desc="added plan-mode shortcut: alt+shift+tab" ;;
-    esac
-    src="${SRC}/configs/${name}"
-    dest="${CONFIGS_DIR}/${name}"
-    if [[ -f "$dest" || "$src" == "$dest" ]]; then
-      notes+=("skipped|configs/${name}|skipped")
-      continue
-    fi
-    cp "$src" "$dest"
-    notes+=("created|configs/${name}|${desc}")
-  done
-}
-
 # keybindings.json: write kit defaults if absent, else force the 2 kit fields in place.
 syncKeybindings() {
   local dest="${AGENT_DIR}/keybindings.json"
@@ -245,7 +219,6 @@ syncKeybindings() {
 
 [[ $RUN_SETTINGS -eq 1 ]]       && syncSettings
 [[ $RUN_SYSTEM_PROMPT -eq 1 ]]  && syncAppendSystem
-[[ $RUN_MODES -eq 1 ]]          && syncModeConfigs
 [[ $RUN_KEYBINDINGS -eq 1 ]]    && syncKeybindings
 
 # --- summary ----------------------------------------------------------------

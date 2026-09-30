@@ -11,7 +11,7 @@ A customizable two-row footer for the pi coding agent. Provides a rich status ba
 Row 1 left:  π | <model name> (<provider>) ⚡ <level> | <folder> <path> <branch> <dirty>
 Row 1 right: <context bar> <pct%> / <max tokens>
 
-Row 2 left:  Plan mode: <VALUE> | Chat mode: <VALUE>
+Row 2 left:  (empty by default)
 Row 2 right: T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out> | $<cost>
 ```
 
@@ -34,7 +34,7 @@ left and right segments are configured independently:
 {
   "row1LeftSegments":  ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"],
   "row1RightSegments": ["context_pct"],
-  "row2LeftSegments":  ["plan_mode", "separator", "chat_mode"],
+  "row2LeftSegments":  [],
   "row2RightSegments": ["token_total", "separator", "cost"],
 
   "colors": {
@@ -68,8 +68,6 @@ See `footer.example.json` in this directory for a full annotated example.
 | `context_pct` | Gradient bar + `X.X%` + max tokens | Bar fully configurable via `segmentOptions.contextBar` (see below). % and max tokens use `contextLabel` colour. Max tokens formatted with K/M suffix (e.g. `128k`, `2M`). Set `DEBUG_PCT` in `context.ts` to a number (0–100) to pin the bar at a fixed value for visual testing. |
 | `cost` | `$<amount>` | `$` dim, amount in `cost` colour (`muted` by default) |
 | `thinking` | `<level>` | Lowercase level with per-level colour; always visible |
-| `plan_mode` | `Plan mode: <MODE>` | Hidden when plan-mode extension not loaded |
-| `chat_mode` | `Chat mode: <MODE>` | Hidden when chat-mode extension not loaded |
 | `token_total` | `T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out>` | Hit rate is `cacheRead / (input + cacheRead + cacheWrite)`; labels are dim and numbers use the `tokens` colour |
 | `token_in` | Input tokens | Available for custom layouts |
 | `token_out` | Output tokens | Available for custom layouts |

@@ -8,8 +8,6 @@ import { tokenInSegment, tokenOutSegment, tokenTotalSegment, cacheReadSegment, c
 import { costSegment } from "./cost.js";
 import { contextPctSegment, contextTotalSegment } from "./context.js";
 import { separatorSegment } from "./separator.js";
-import { planModeSegment } from "./plan-mode.js";
-import { chatModeSegment } from "./chat-mode.js";
 
 const SEGMENTS = {
   pi: piSegment,
@@ -26,8 +24,6 @@ const SEGMENTS = {
   cache_read: cacheReadSegment,
   cache_write: cacheWriteSegment,
   separator: separatorSegment,
-  plan_mode: planModeSegment,
-  chat_mode: chatModeSegment,
 };
 
 export function renderSegment(id: StatusLineSegmentId, ctx: SegmentContext): RenderedSegment {

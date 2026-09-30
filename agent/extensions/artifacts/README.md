@@ -36,7 +36,7 @@ Kind is never auto-detected from content — markdown legitimately opens with in
 
 ## Storage
 
-Project-local, mirroring plan-mode's `.pi/plans` convention:
+Project-local storage:
 
 ```
 <project>/.pi/artifacts/<slug>.html

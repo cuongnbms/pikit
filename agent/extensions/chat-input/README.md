@@ -24,12 +24,6 @@ User config lives in `~/.pi/agent/configs/chat-input.json`. Create it to overrid
   "borderColor": "border",
   "prefix": "❯",
   "prefixColor": "accent",
-  "planModePrefix": "⏸",
-  "planModePrefixColor": "customMessageLabel",
-  "planModeBorderColor": "customMessageLabel",
-  "chatModePrefix": "»",
-  "chatModePrefixColor": "chatModeBorder",
-  "chatModeBorderColor": "chatModeBorder",
   "companion": {
     "enabled": true,
     "color": "accent"
@@ -46,12 +40,6 @@ User config lives in `~/.pi/agent/configs/chat-input.json`. Create it to overrid
 | `borderColor` | `string` | `"border"` | Theme colour token **or** hex colour |
 | `prefix` | `string` | `"❯"` | Unicode prefix character shown on the first body line. |
 | `prefixColor` | `string` | `"accent"` | Theme colour token **or** hex colour |
-| `planModeBorderColor` | `string` | `"customMessageLabel"` | Border colour in plan/execute mode (theme token or hex) |
-| `planModePrefix` | `string` | `"⏸"` | Prefix character in plan/execute mode |
-| `planModePrefixColor` | `string` | `"customMessageLabel"` | Prefix colour in plan/execute mode (theme token or hex) |
-| `chatModeBorderColor` | `string` | `"chatModeBorder"` | Border colour in chat mode (theme token or hex) |
-| `chatModePrefix` | `string` | `"»"` | Prefix character in chat mode |
-| `chatModePrefixColor` | `string` | `"chatModeBorder"` | Prefix colour in chat mode (theme token or hex) |
 | `companion.enabled` | `boolean` | `false` | Show a rotating ASCII cat companion above the input. When disabled, top padding is `0`. |
 | `companion.color` | `string` | `"accent"` | Theme colour token **or** hex colour for the companion art. |
 
@@ -59,4 +47,4 @@ User config lives in `~/.pi/agent/configs/chat-input.json`. Create it to overrid
 
 Any valid theme colour token works. See your active theme in `~/.pi/agent/themes/` or via `/settings → Theme` for available tokens.
 
-Chat mode gets its own border/prefix styling like plan mode — see the [`chat-mode`](../chat-mode/README.md) extension. Precedence when multiple modes are active: bash > plan > chat > default (in practice modes are mutually exclusive).
+Input beginning with `!` uses the theme's `bashMode` colour for the border and prefix. Other input uses the configured border and prefix colours.

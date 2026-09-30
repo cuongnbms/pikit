@@ -18,8 +18,6 @@
 ```
 agent/
 ├── configs/
-│   ├── chat-mode.json           # Chat mode settings (tracked)
-│   ├── plan-mode.json           # Plan mode settings (tracked)
 │   └── footer.json              # Footer segment configuration — gitignored, see footer/footer.example.json
 ├── APPEND_SYSTEM.md             # Coding guidelines appended to the system prompt every session
 ├── settings.example.json        # Opinionated pi settings — copy to settings.json (gitignored)
@@ -28,8 +26,6 @@ agent/
 └── extensions/
     ├── chat-input/              # Unicode box border around the main chat input editor
     ├── footer/                  # Status bar with git, tokens, cost, context
-    ├── plan-mode/               # Plan-then-execute workflow: read-only planning, then execute with plan_complete
-    ├── chat-mode/               # Read-only conversational mode: chat, explore, search — no edits
     ├── spinners/                # Rotating spinner verbs while the agent thinks
     ├── startup/                 # Welcome header shown at session start
     ├── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
@@ -67,16 +63,15 @@ Flag | Description |
 |-|-|
 | `--settings` | Sync `settings.json` (theme: "slop")
 | `--system-prompt` | Sync `APPEND_SYSTEM.md`
-| `--modes` | Sync `configs/chat-mode.json` and `configs/plan-mode.json`
 | `--keybindings` | Sync `keybindings.json` (two Pikit keybinds)
 | `--help`, `-h` | Show this help
 
 
-* Running it with no flags runs every job, in order: settings, system-prompt, modes, keybindings
+* Running it with no flags runs every job, in order: settings, system-prompt, keybindings
 
 * Existing files are backed up to `~/.pi/agent/_bak/` before being replaced
 
-* Idempotent so existing mode configs and already-correct fields are skipped
+* Idempotent so already-correct files and fields are skipped
 
 ### Cloning the repo?
 
@@ -107,11 +102,6 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 
 
 ## Extensions
-
-### Workflows & Modes
-
-* **plan-mode** — Adds a `/plan` workflow. Restricts tools to read-only mode while the LLM drafts a structured execution roadmap, then unlocks full capabilities once execution begins. → [`README`](agent/extensions/plan-mode/README.md)
-* **chat-mode** — Toggled via `/chat` or `Ctrl+Shift+C`. Locks the filesystem to read-only so you can freely discuss, search, and parse code without risk of accidental changes. → [`README`](agent/extensions/chat-mode/README.md)
 
 ### UI & UX
 
