@@ -104,7 +104,9 @@ export default function footer(pi: ExtensionAPI) {
     leafId: string | null;
     entryCount: number;
     model: ExtensionContext["model"];
+    modelKey: string;
     modelWindow: number | undefined;
+    routedModel: SegmentContext["routedModel"];
     catalog: { model: NonNullable<ExtensionContext["model"]>; window: number; provider: string; id: string }[];
     usageStats: UsageStats;
     contextUsage: ReturnType<ExtensionContext["getContextUsage"]>;
@@ -121,6 +123,16 @@ export default function footer(pi: ExtensionAPI) {
       setupFooter(ctx);
     }
   });
+
+  // Event contexts are fresh snapshots on some hosts; don't retain a selection
+  // from before tree navigation or a model switch. session_start covers resumes.
+  const refreshContext = (_event: unknown, ctx: ExtensionContext) => {
+    currentCtx = ctx;
+    sessionStats = null;
+    tuiRef?.requestRender();
+  };
+  pi.on("session_tree", refreshContext);
+  pi.on("model_select", refreshContext);
 
   // Routed physical limits can change in agent state before the finalized
   // assistant is persisted (and before the leaf/count cache key moves).
@@ -158,6 +170,7 @@ export default function footer(pi: ExtensionAPI) {
     const sessionId = manager?.getSessionId?.();
     const leafId = manager?.getLeafId?.() ?? null;
     const model = ctx.model;
+    const modelKey = JSON.stringify([model?.api, model?.provider, model?.id]);
     const modelWindow = model?.contextWindow;
     // Virtual limits resolve through the live physical catalog. Its snapshot
     // check is independent of history; refresh/removal must invalidate context too.
@@ -177,7 +190,7 @@ export default function footer(pi: ExtensionAPI) {
     if (sessionStats && sessionStats.manager === manager &&
         sessionStats.sessionId === sessionId && sessionStats.leafId === leafId &&
         sessionStats.entryCount === entryCount && sessionStats.model === model &&
-        sessionStats.modelWindow === modelWindow && catalogUnchanged) {
+        sessionStats.modelKey === modelKey && sessionStats.modelWindow === modelWindow && catalogUnchanged) {
       return sessionStats;
     }
 
@@ -197,8 +210,29 @@ export default function footer(pi: ExtensionAPI) {
       usageStats.cost += usage.cost.total;
     }
 
+    // Cumulative accounting includes abandoned entries; routing must not. Read
+    // the active branch only on cache misses and only for virtual selections.
+    let routedModel: SegmentContext["routedModel"];
+    if (model?.api === "pi-virtual") {
+      const branch: SessionEvent[] = manager?.getBranch?.() ?? [];
+      let candidate: SegmentContext["routedModel"];
+      for (let i = branch.length - 1; i >= 0; i--) {
+        const entry = branch[i];
+        // Tree navigation retains the live selection, which may differ from
+        // this branch's selection. Never attribute its response to another router.
+        if (entry.type === "model_change") {
+          if (entry.provider === model.provider && entry.modelId === model.id) routedModel = candidate;
+          break;
+        }
+        const message = entry.type === "message" ? entry.message : undefined;
+        if (!candidate && message?.role === "assistant" && message.provider && message.model && message.api !== "pi-virtual") {
+          candidate = { provider: message.provider, id: message.model, thinkingLevel: message.thinkingLevel };
+        }
+      }
+    }
+
     sessionStats = {
-      manager, sessionId, leafId, entryCount, model, modelWindow, usageStats,
+      manager, sessionId, leafId, entryCount, model, modelKey, modelWindow, routedModel, usageStats,
       catalog: catalog.map((entry) => ({ model: entry, window: entry.contextWindow, provider: entry.provider, id: entry.id })),
       contextUsage: ctx.getContextUsage?.(),
     };
@@ -208,7 +242,7 @@ export default function footer(pi: ExtensionAPI) {
   function buildSegmentContext(ctx: ExtensionContext, width: number, theme: Theme): SegmentContext {
     const effectiveConfig = getEffectiveConfig();
     const colors = effectiveConfig.colors ?? getDefaultColors();
-    const { usageStats, contextUsage } = getSessionStats(ctx);
+    const { usageStats, contextUsage, routedModel } = getSessionStats(ctx);
     // Canonical context may be unknown after compaction, and may use a physical
     // model's limits rather than the selected virtual model's advertised window.
     const contextTokens = contextUsage?.tokens ?? null;
@@ -228,6 +262,7 @@ export default function footer(pi: ExtensionAPI) {
 
     return {
       model: ctx.model,
+      routedModel,
       isLocalModel,
       thinkingLevel: pi.getThinkingLevel(),
       sessionId: ctx.sessionManager?.getSessionId?.(),

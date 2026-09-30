@@ -1,9 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { VERSION } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
 
 import { bold, centerText, fitToWidth, hasNerdFonts } from "./helpers.js";
-import type { LoadedCounts } from "./discovery.js";
+import type { StartupCounts } from "./discovery.js";
 
 const PI_ART = [
   "██████╗ ██╗",
@@ -38,24 +38,27 @@ function buildTipsColumn(theme: Theme, keyMap: KeyMap): string[] {
   ];
 }
 
-function buildRightColumn(theme: Theme, counts: LoadedCounts): string[] {
-  const dim = (s: string) => theme.fg("dim", s);
-  const { models, contextFiles, extensions, skills, promptTemplates } = counts;
-  const itemPrefix = dim("• ");
-  const countLines: string[] = [
-    ` ${itemPrefix}${theme.fg(models > 0 ? "success" : "dim", `${models}`)} model${models !== 1 ? "s" : ""}`,
-    ` ${itemPrefix}${theme.fg(extensions > 0 ? "success" : "dim", `${extensions}`)} extension${extensions !== 1 ? "s" : ""}`,
-    ` ${itemPrefix}${theme.fg(skills > 0 ? "success" : "dim", `${skills}`)} skill${skills !== 1 ? "s" : ""}`,
-    ` ${itemPrefix}${theme.fg(promptTemplates > 0 ? "success" : "dim", `${promptTemplates}`)} prompt template${promptTemplates !== 1 ? "s" : ""}`,
-    ` ${itemPrefix}${theme.fg(contextFiles > 0 ? "success" : "dim", `${contextFiles}`)} context file${contextFiles !== 1 ? "s" : ""}`,
-  ];
-
+function buildRightColumn(theme: Theme, counts: StartupCounts): string[] {
+  const { models, modelSource, contextFiles, extensions, skills, promptTemplates } = counts;
+  const item = (n: number, label: string, estimate = false) =>
+    ` ${theme.fg("dim", "• ")}${theme.fg(n > 0 ? "success" : "dim", `${estimate ? "~" : ""}${n}`)} ${label}`;
+  const countLines: string[] = [];
+  if (models !== undefined && modelSource) {
+    countLines.push(item(models, `${modelSource} model${models !== 1 ? "s" : ""}`));
+  }
+  // Filesystem discovery cannot prove loading succeeded, was enabled, or trusted.
+  countLines.push(
+    item(extensions, `configured extension${extensions !== 1 ? "s" : ""}`, true),
+    item(skills, `registered skill${skills !== 1 ? "s" : ""}`),
+    item(promptTemplates, `registered template${promptTemplates !== 1 ? "s" : ""}`),
+    item(contextFiles, `configured context file${contextFiles !== 1 ? "s" : ""}`, true),
+  );
   return ["", ...countLines, ""];
 }
 
 export function renderBox(
   theme: Theme,
-  counts: LoadedCounts,
+  counts: StartupCounts,
   termWidth: number,
   keyMap: KeyMap,
 ): string[] {
@@ -64,7 +67,7 @@ export function renderBox(
 
   const boxWidth = Math.min(termWidth, Math.max(76, Math.min(termWidth - 2, 82)));
   const leftCol = 20;
-  const configCol = 28;
+  const configCol = 32;
   const tipsCol = Math.max(1, boxWidth - leftCol - configCol - 2);
   const hChar = "─";
   const nerd = hasNerdFonts();
@@ -79,22 +82,23 @@ export function renderBox(
   lines.push("");
 
   const icon = nerd ? "\uE22C" : "";
-  const titleContent = icon !== "" ? `  pi.dev agent v${VERSION}` : ` pi.dev agent v${VERSION} `;
-  const titleVisLen = 2 + visibleWidth(icon) + visibleWidth(titleContent);
-  const afterTitle = (boxWidth - 2) - titleVisLen;
-  lines.push(
-    separator("╭") +
-    separator(hChar.repeat(2)) + theme.fg("accent", icon) + dim(titleContent) +
-    separator(hChar.repeat(Math.max(1, afterTitle))) +
-    separator("╮")
-  );
+  const title = truncateToWidth(theme.fg("accent", icon) + dim(` pi.dev agent v${VERSION} `), boxWidth - 4);
+  lines.push(separator("╭──") + title + separator(hChar.repeat(boxWidth - 4 - visibleWidth(title))) + separator("╮"));
 
-  const maxRows = Math.max(leftLines.length, configLines.length, tipsLines.length);
-  for (let i = 0; i < maxRows; i++) {
-    const left   = fitToWidth(leftLines[i]   ?? "", leftCol);
-    const config = fitToWidth(configLines[i] ?? "", configCol);
-    const tips   = fitToWidth(tipsLines[i]   ?? "", tipsCol);
-    lines.push(separator("│") + left + config + tips + separator("│"));
+  if (termWidth < 76) {
+    // Three fixed columns do not fit small terminals. Keep resource provenance
+    // and tips, stacked, rather than overflowing or truncating estimate labels.
+    for (const line of [...configLines, ...tipsLines.slice(1), ""]) {
+      lines.push(separator("│") + fitToWidth(line, boxWidth - 2) + separator("│"));
+    }
+  } else {
+    const maxRows = Math.max(leftLines.length, configLines.length, tipsLines.length);
+    for (let i = 0; i < maxRows; i++) {
+      const left   = fitToWidth(leftLines[i]   ?? "", leftCol);
+      const config = fitToWidth(configLines[i] ?? "", configCol);
+      const tips   = fitToWidth(tipsLines[i]   ?? "", tipsCol);
+      lines.push(separator("│") + left + config + tips + separator("│"));
+    }
   }
 
   lines.push(separator("╰") + separator(hChar.repeat(boxWidth - 2)) + separator("╯"));

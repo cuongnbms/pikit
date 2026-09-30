@@ -14,11 +14,13 @@ import {
   renderLsCall, renderLsResult,
   renderGrepCall, renderGrepResult,
   renderFindCall, renderFindResult,
+  invalidateStyledResults,
 } from "./components/base-renderer.js";
 import { renderFallbackCall, renderFallbackResult } from "./components/fallback-renderer.js";
 import { createSkillInvocationMessage } from "./components/skill-message.js";
 import { createCustomMessage } from "./components/custom-message.js";
-import { branchLine, doneLabel, errorLabel, expandHint, formatExpandedLines, startToolSpinnerSession, stopToolSpinners } from "./components/tool-shared.js";
+import { branchLine, doneLabel, errorLabel, expandHint, startToolSpinnerSession, stopToolSpinners } from "./components/tool-shared.js";
+import { cachedExpandedLines } from "./components/output-cache.js";
 
 export default function styledOutputs(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
@@ -122,6 +124,12 @@ export default function styledOutputs(pi: ExtensionAPI) {
           this.contentBox.setBgFn(undefined);
         }
       }
+    };
+
+    const originalToolInvalidate = toolProto.invalidate;
+    toolProto.invalidate = function patchedToolInvalidate(...args: any[]) {
+      invalidateStyledResults(this.rendererState);
+      return originalToolInvalidate.apply(this, args);
     };
 
     // Native Box padding is fixed; reduce our margins when the terminal is narrower.
@@ -299,6 +307,20 @@ export default function styledOutputs(pi: ExtensionAPI) {
       return origRender.call(this, width).map((line: string) => fitLineToWidth(line, width));
     };
 
+    // Native appendOutput mutates outputLines and the last string in place. Increment
+    // before it calls updateDisplay so render/spinner ticks need no output scan.
+    const originalAppendOutput = bashExecProto.appendOutput;
+    bashExecProto.appendOutput = function patchedAppendOutput(...args: any[]) {
+      this._styledOutputRevision = (this._styledOutputRevision ?? 0) + 1;
+      return originalAppendOutput.apply(this, args);
+    };
+    const originalBashInvalidate = bashExecProto.invalidate;
+    bashExecProto.invalidate = function patchedBashInvalidate(...args: any[]) {
+      // Explicit invalidation also supports non-native edits to existing output lines.
+      this._styledCheckOutput = true;
+      return originalBashInvalidate.apply(this, args);
+    };
+
     // Replace updateDisplay with styled version matching tool call pattern
     bashExecProto.updateDisplay = function patchedBashUpdateDisplay() {
       const t = currentTheme!;
@@ -329,18 +351,35 @@ export default function styledOutputs(pi: ExtensionAPI) {
         clearStyledBashTimer(this);
       }
 
-      // Truncation
-      const fullOutput = (this.outputLines as string[]).join("\n");
-      const contextTruncation = truncateTail(fullOutput, {
-        maxLines: DEFAULT_MAX_LINES,
-        maxBytes: DEFAULT_MAX_BYTES,
-      });
-      const availableLines = contextTruncation.content ? contextTruncation.content.split("\n") : [];
-      const nonEmptyLines = availableLines.filter((l: string) => l.trim().length > 0);
+      const outputLines = this.outputLines as string[];
+      const revision = this._styledOutputRevision ?? 0;
+      let output = this._styledOutputCache;
+      const lastLine = outputLines[outputLines.length - 1];
+      const changed = !output || output.source !== outputLines || output.revision !== revision ||
+        output.snapshot.length !== outputLines.length || output.lastLine !== lastLine ||
+        (this._styledCheckOutput && output.snapshot.some((line: string, i: number) => line !== outputLines[i]));
+      this._styledCheckOutput = false;
+      if (changed) {
+        const contextTruncation = truncateTail(outputLines.join("\n"), {
+          maxLines: DEFAULT_MAX_LINES,
+          maxBytes: DEFAULT_MAX_BYTES,
+        });
+        const availableLines = contextTruncation.content ? contextTruncation.content.split("\n") : [];
+        output = this._styledOutputCache = {
+          source: outputLines, revision, lastLine, snapshot: outputLines.slice(),
+          contextTruncation, availableLines,
+          nonEmptyCount: availableLines.filter((line: string) => line.trim().length > 0).length,
+        };
+      }
+      const { contextTruncation, availableLines, nonEmptyCount } = output;
 
-      // Rebuild content container
+      // Attach once; keep the native Text width cache across unchanged displays.
       const cc = this.contentContainer as any;
-      cc.clear();
+      if (!this._styledText) {
+        this._styledText = new Text("", 1, 0);
+        cc.clear();
+        cc.addChild(this._styledText);
+      }
 
       // --- Header: <prefix-icon> <Command|Shell> <dim-command> ---
       const typeLabel = this._excludeFromContext ? "Shell" : "Command";
@@ -369,23 +408,22 @@ export default function styledOutputs(pi: ExtensionAPI) {
         statusLine = branchLine(applyColor(t, tc.toolError.labelColor, "Cancelled"), t);
       } else if (this.status === "error") {
         statusLine = errorLabel(t);
-        if (!this.expanded && nonEmptyLines.length > 0) {
+        if (!this.expanded && nonEmptyCount > 0) {
           statusLine += expandHint(t);
         }
       } else {
-        const count = nonEmptyLines.length > 0
-          ? { label: "lines" as const, value: nonEmptyLines.length }
+        const count = nonEmptyCount > 0
+          ? { label: "lines" as const, value: nonEmptyCount }
           : undefined;
         const done = doneLabel(t, count);
-        statusLine = (!this.expanded && nonEmptyLines.length > 0) ? done + expandHint(t) : done;
+        statusLine = (!this.expanded && nonEmptyCount > 0) ? done + expandHint(t) : done;
       }
 
       // --- Assemble: header, then status, then output (if expanded) ---
       let display = "\n" + headerLine + "\n" + statusLine;
 
-      if (this.expanded && nonEmptyLines.length > 0) {
-        const styled = availableLines.map((l: string) => applyColor(t, tc.general.outputColor, l));
-        display += formatExpandedLines(styled, "tail", t);
+      if (this.expanded && nonEmptyCount > 0) {
+        display += cachedExpandedLines(availableLines, "tail", t);
       }
 
       // Truncation warning
@@ -397,7 +435,7 @@ export default function styledOutputs(pi: ExtensionAPI) {
         );
       }
 
-      cc.addChild(new Text(display, 1, 0));
+      if (this._styledText.text !== display) this._styledText.setText(display);
     };
 
     // Patch setComplete to clear spinner

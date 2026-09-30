@@ -7,12 +7,21 @@
 # Escape hatch: add "<pkg>@<version>" entries to minimumReleaseAgeExclude when
 # you genuinely need a version that was just published.
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude: []
+# Explicitly selected dev API baseline; keep the age gate for unrelated releases.
+minimumReleaseAgeExclude:
+  - '@earendil-works/chord@0.99.1'
+  - '@earendil-works/pi-agent-core@0.99.1'
+  - '@earendil-works/pi-ai@0.99.1'
+  - '@earendil-works/pi-codemode@0.99.1'
+  - '@earendil-works/pi-coding-agent@0.99.1'
+  - '@earendil-works/pi-mcp@0.99.1'
+  - '@earendil-works/pi-telemetry@0.99.1'
+  - '@earendil-works/pi-tui@0.99.1'
 
-# pnpm blocks dependency install scripts by default. Both of these are
-# transitive dev-only deps whose build steps aren't needed for `pnpm check`
-# (tsc --noEmit), so they stay unbuilt. Declaring them silences
-# ERR_PNPM_IGNORED_BUILDS, which pnpm otherwise raises as a hard error.
+# Keep transitive dev install scripts blocked explicitly, so pnpm does not
+# treat them as unreviewed builds. esbuild uses its platform optional binary;
+# typechecking and extension regression tests do not need its install script.
 allowBuilds:
   '@google/genai': false
+  esbuild: false
   protobufjs: false

@@ -77,10 +77,10 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")], co
   }
   t.after(() => component?.dispose());
   return { state, ctx, root, configPath,
-    emit: async (type, event) => {
-      for (const handler of loaded.extensions[0].handlers.get(type) ?? []) await handler(event, ctx);
+    emit: async (type, event, eventCtx = ctx) => {
+      for (const handler of loaded.extensions[0].handlers.get(type) ?? []) await handler(event, eventCtx);
     },
-    render: () => component.render(240)
+    render: (width = 240) => component.render(width)
       .map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()) };
 }
 
@@ -231,4 +231,134 @@ test("config cache follows HOME path identity before TTL expiration", async (t) 
   process.env.HOME = secondHome;
   assert.equal(f.render()[1], "HOME-B");
   assert.ok(await readFile(configPath, "utf8"));
+});
+
+const modelConfig = { ...statsConfig, row1LeftSegments: ["model"], row2LeftSegments: [] };
+function routed(id, provider = "physical-provider", model = "physical-model", thinkingLevel = "medium") {
+  const entry = assistant(id);
+  Object.assign(entry.message, { provider, model, thinkingLevel });
+  return entry;
+}
+function selectedBranch(...responses) {
+  return [{ type: "model_change", provider: "router", modelId: "virtual" }, ...responses];
+}
+function selectVirtual(f, id = "virtual") {
+  f.ctx.model = { ...f.ctx.model, api: "pi-virtual", provider: "router", id, name: id };
+}
+
+// Reading allEntries here would show the abandoned route instead of the current branch.
+test("virtual model shows current-branch physical provider/model and routed thinking, cached across frames", async (t) => {
+  const f = await fixture(t, { config: modelConfig, entries: [routed("abandoned", "wrong", "abandoned", "max")] });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("active"));
+  assert.equal(f.render()[1], "virtual (router) → physical-model (physical-provider) • medium");
+  f.state.thinking = "low";
+  f.render(); f.render();
+  assert.equal(f.state.branchReads, 1, "route must reuse the session-stat cache");
+  assert.equal(f.state.scans, 1);
+});
+
+test("virtual selection before a response and ordinary models keep concise selected-model UI", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  f.state.branch = [];
+  selectVirtual(f);
+  assert.equal(f.render()[1], "virtual (router)");
+  f.ctx.model = { ...f.ctx.model, api: "openai-completions", name: "Claude Sonnet", provider: "anthropic" };
+  f.state.branch = [routed("old")];
+  assert.equal(f.render()[1], "Sonnet (anthropic)");
+});
+
+test("virtual route follows branch, session and manager changes, including a branch without responses", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("first"));
+  assert.match(f.render()[1], /physical-model/);
+  f.state.leafId = "other-leaf";
+  f.state.branch = selectedBranch(routed("other", "other-provider", "other-model", "off"));
+  assert.equal(f.render()[1], "virtual (router) → other-model (other-provider) • off");
+  f.state.leafId = "empty-leaf";
+  f.state.branch = [];
+  assert.equal(f.render()[1], "virtual (router)");
+  f.state.sessionId = "other-session";
+  f.state.branch = selectedBranch(routed("session", "session-provider", "session-model", "high"));
+  assert.match(f.render()[1], /session-model \(session-provider\) • high$/);
+  f.ctx.sessionManager = { ...f.ctx.sessionManager, getBranch: () => [] };
+  assert.equal(f.render()[1], "virtual (router)");
+});
+
+test("changing virtual selection hides previous route until that selection has a response", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("old"));
+  f.render();
+  selectVirtual(f, "new-virtual");
+  f.state.branch.push({ type: "model_change", provider: "router", modelId: "new-virtual" });
+  f.state.leafId = "selection";
+  await f.emit("model_select", { type: "model_select", model: f.ctx.model, source: "set" });
+  assert.equal(f.render()[1], "new-virtual (router)");
+  f.state.branch.push(routed("new", "new-provider", "new-model", "low"));
+  f.state.entries.push(f.state.branch.at(-1));
+  f.state.leafId = "response";
+  assert.equal(f.render()[1], "new-virtual (router) → new-model (new-provider) • low");
+});
+
+test("tree navigation does not attribute a different virtual selection's response to the live selection", async (t) => {
+  const { SessionManager } = await import(pathToFileURL(join(piDir, "dist/core/session-manager.js")));
+  const f = await fixture(t, { config: modelConfig });
+  const manager = SessionManager.inMemory(f.root);
+  f.ctx.sessionManager = manager;
+  manager.appendModelChange("router", "virtual-A");
+  const responseA = manager.appendMessage(routed("a", "physical", "physical-A").message);
+  selectVirtual(f, "virtual-A");
+  assert.equal(f.render()[1], "virtual-A (router) → physical-A (physical) • medium");
+  manager.appendModelChange("router", "virtual-B");
+  selectVirtual(f, "virtual-B");
+  assert.equal(f.render()[1], "virtual-B (router)");
+  manager.branch(responseA);
+  await f.emit("session_tree", { type: "session_tree", newLeafId: responseA });
+  assert.equal(f.render()[1], "virtual-B (router)", "tree navigation preserves B's live selection, not A's recorded one");
+  manager.appendModelChange("router", "virtual-B");
+  manager.appendMessage(routed("b", "physical", "physical-B", "low").message);
+  assert.equal(f.render()[1], "virtual-B (router) → physical-B (physical) • low");
+  f.ctx.model = { ...f.ctx.model, provider: "another-router" };
+  assert.equal(f.render()[1], "virtual-B (another-router)", "a different provider with the same model id is a different selection");
+});
+
+test("session tree and selection events refresh the footer context rather than retaining an old selection", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("first"));
+  f.render();
+  const treeCtx = { ...f.ctx, model: { ...f.ctx.model, api: "openai-completions", id: "tree-model", name: "Tree Model" } };
+  await f.emit("session_tree", { type: "session_tree", newLeafId: "tree-leaf", oldLeafId: "leaf-a" }, treeCtx);
+  assert.equal(f.render()[1], "Tree Model (router)");
+  const selectCtx = { ...treeCtx, model: { ...treeCtx.model, name: "Selected Model", id: "selected" } };
+  await f.emit("model_select", { type: "model_select", model: selectCtx.model, source: "cycle" }, selectCtx);
+  assert.equal(f.render()[1], "Selected Model (router)");
+});
+
+test("physical response without recorded thinking does not borrow selected thinking", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("no-level"));
+  delete f.state.branch[1].message.thinkingLevel;
+  assert.equal(f.render()[1], "virtual (router) → physical-model (physical-provider)");
+});
+
+test("physical history without a recorded virtual selection cannot prove a route", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = [routed("old-physical")];
+  assert.equal(f.render()[1], "virtual (router)");
+});
+
+test("virtual footer remains width-bounded on narrow terminals", async (t) => {
+  const f = await fixture(t, { config: modelConfig });
+  selectVirtual(f);
+  f.state.branch = selectedBranch(routed("active"));
+  for (const width of [20, 44, 80]) {
+    const lines = f.render(width);
+    assert.equal(lines.length, 4);
+    assert.ok(lines.every((line) => [...line].length <= width));
+  }
 });

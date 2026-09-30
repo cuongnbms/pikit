@@ -94,6 +94,7 @@ export interface UsageStats {
 // Context passed to segment render functions
 export interface SegmentContext {
   model: { id: string; name?: string; reasoning?: boolean; contextWindow?: number; provider?: string; baseUrl?: string } | undefined;
+  routedModel?: { provider: string; id: string; thinkingLevel?: string };
   isLocalModel: boolean;
   thinkingLevel: string;
   sessionId: string | undefined;
@@ -124,7 +125,9 @@ export interface UserBashEvent {
 // Structural shape keeps newer usage entry categories compatible with Pi 0.80 types.
 export interface SessionEvent {
   type: string;
-  message?: { role: string; usage?: Usage };
+  provider?: string;
+  modelId?: string;
+  message?: { role: string; usage?: Usage; provider?: string; model?: string; api?: string; thinkingLevel?: string };
   usage?: Usage;
 }
 

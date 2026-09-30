@@ -17,6 +17,15 @@ export const modelSegment = {
       content += ` ${applyColor(ctx.theme, "dim", `(${ctx.model.provider})`)}`;
     }
 
+    if (ctx.routedModel) {
+      const routed = ctx.routedModel;
+      content += ` ${applyColor(ctx.theme, "dim", "→")} ${color(ctx, "model", routed.id)}`;
+      content += ` ${applyColor(ctx.theme, "dim", `(${routed.provider})`)}`;
+      if (routed.thinkingLevel) {
+        content += ` ${applyColor(ctx.theme, "dim", `• ${routed.thinkingLevel}`)}`;
+      }
+    }
+
     return { content, visible: true };
   },
 };

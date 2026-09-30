@@ -21,7 +21,8 @@ Row 2 right: T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out
 - **Context bar**: 20-character gradient block bar with configurable colours and % indicator
 - **Git integration**: Shows current branch and working tree status (staged, unstaged, untracked)
 - **Token tracking**: Composite `T:` line with total, cache-read count, cache hit rate, input, and output counts
-- **Thinking level**: Lowercase level name with per-level colour
+- **Thinking level**: Lowercase selected level name with per-level colour
+- **Virtual routing**: The `model` segment adds `→ <physical model> (<provider>) • <routed thinking>` after a response on the current session branch. Ordinary models and virtual selections without a response keep the concise selected-model display.
 - **Nerd Font support**: Automatic detection with ASCII fallbacks
 - **Live updates**: Git status refreshes automatically as you work
 
@@ -62,7 +63,7 @@ See `footer.example.json` in this directory for a full annotated example.
 | Segment | Description | Notes |
 |---------|-------------|-------|
 | `pi` | π symbol in accent blue | — |
-| `model` | Model name in pink + `(provider)` in dim | No icon; provider omitted if unavailable |
+| `model` | Selected model name + `(provider)`, with physical route for virtual models | Route uses the latest current-branch assistant's recorded provider/model/thinking; missing routed thinking is omitted, never inferred from the selected level |
 | `path` | Current working directory | `segmentOptions.path.mode`: `"basename"` (default) · `"abbreviated"` · `"full"` |
 | `git` | Git branch and dirty indicators | `showBranch`, `showStaged`, `showUnstaged`, `showUntracked` (all bool) |
 | `context_pct` | Gradient bar + `X.X%` + max tokens | Bar fully configurable via `segmentOptions.contextBar` (see below). % and max tokens use `contextLabel` colour. Max tokens formatted with K/M suffix (e.g. `128k`, `2M`). Set `DEBUG_PCT` in `context.ts` to a number (0–100) to pin the bar at a fixed value for visual testing. |
@@ -76,6 +77,22 @@ See `footer.example.json` in this directory for a full annotated example.
 | `context_total` | Total context window size | — |
 | `separator` | `\|` divider | Coloured via `separator` in `colors` |
 | `text:...` | Literal text, e.g. `text:⚡` | — |
+
+## Branch and route accounting
+
+Usage/cost totals include all session entries, including abandoned branches. Virtual
+route identity is separate: it comes only from assistant messages on the active
+branch, after its latest model-selection entry, and only when that recorded
+provider/model matches the live virtual selection. Navigating into another
+selection's history keeps the selected-only display. Switching branch/session or
+selecting a new model invalidates the cached route. Before that selection has a
+response, only its selected model is shown. The separate `thinking` segment
+continues to show the live selected level, not the physical response's level.
+
+Route lookup shares the session-stat cache (manager/session/leaf/count/model);
+unchanged frames do not rescan branch history. Ordinary models never need a route
+scan. Physical routes become visible once the assistant message is persisted;
+`message_end` invalidates accounting while the host finalizes the response.
 
 ## Context Bar
 

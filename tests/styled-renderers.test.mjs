@@ -260,6 +260,279 @@ test("narrow native assistant and thinking retain fitting body characters", () =
   }
 });
 
+test("makeText skips unchanged writes but retains native invalidation and changed text", () => {
+  const component = shared.makeText(undefined, "first");
+  const rows = component.render(80);
+  const nativeSetText = component.setText;
+  let writes = 0;
+  component.setText = function (...args) { writes++; return nativeSetText.apply(this, args); };
+  assert.equal(shared.makeText(component, "first"), component);
+  assert.equal(writes, 0, "unchanged text must keep the native width cache");
+  assert.equal(component.render(80), rows);
+  component.invalidate();
+  assert.notEqual(component.render(80), rows, "native invalidate must still clear the width cache");
+  shared.makeText(component, "second");
+  assert.equal(writes, 1);
+  assert.match(display(component).join("\n"), /second/);
+  component.setText("external");
+  shared.makeText(component, "second");
+  assert.match(display(component).join("\n"), /second/, "native setText changes cannot poison the helper cache");
+});
+
+test("Bash caches output derivation and Text across renders and same-line native mutations", () => {
+  const component = new pi.BashExecutionComponent("cache output", ui);
+  let joins = 0;
+  const lines = component.outputLines;
+  lines.join = function (...args) { joins++; return Array.prototype.join.apply(this, args); };
+  try {
+    component.appendOutput("first\n\nsecond");
+    component.setExpanded(true);
+    const text = component.contentContainer.children[0];
+    const nativeSetText = text.setText;
+    let writes = 0;
+    text.setText = function (...args) { writes++; return nativeSetText.apply(this, args); };
+    const derived = joins;
+    display(component);
+    display(component);
+    assert.equal(joins, derived, "render/spinner-only updates must not join or retruncate output");
+    assert.equal(component.contentContainer.children[0], text, "Text must remain attached");
+    assert.equal(writes, 0, "unchanged display must not reset the width cache");
+    const beforeSpinner = component.render(80).join("\n");
+    component._spinnerFrame++;
+    const afterSpinner = component.render(80).join("\n");
+    assert.notEqual(afterSpinner, beforeSpinner, "spinner must not freeze with output cache");
+    assert.equal(joins, derived);
+    component.appendOutput(" tail");
+    assert.match(display(component).join("\n"), /second tail/);
+    assert.equal(component.outputLines, lines, "exercise native in-place same-line append");
+    component.outputLines[0] = "FIRST";
+    component.invalidate(); // Direct non-native edits notify through the native invalidation contract.
+    assert.match(display(component).join("\n"), /FIRST/);
+    component.outputLines.splice(1, 2, "replacement");
+    assert.match(display(component).join("\n"), /replacement/);
+    component.outputLines = ["new array"];
+    assert.match(display(component).join("\n"), /new array/);
+    component.setExpanded(false);
+    assert.doesNotMatch(display(component).join("\n"), /new array/);
+    component.setComplete(4, false, { truncated: true }, "/tmp/one.txt");
+    assert.match(display(component).join("\n"), /Error.*expand/);
+    component.fullOutputPath = "/tmp/two.txt";
+    assert.match(display(component).join("\n"), /Full output: \/tmp\/two.txt/);
+    component.truncationResult.truncated = false;
+    assert.doesNotMatch(display(component).join("\n"), /Output truncated/);
+    component.setComplete(0, true);
+    assert.match(display(component).join("\n"), /Cancelled/);
+    assert.doesNotMatch(display(component).join("\n"), /Running/);
+    component.setExpanded(true);
+    assert.match(display(component).join("\n"), /new array/);
+    for (const width of [4, 20, 80]) assertFits(component, width);
+  } finally { component.setComplete(0, false); }
+});
+
+test("built-in results cache derived output without stale in-place content, flags or colors", () => {
+  for (const name of ["read", "bash", "grep", "find", "ls", "edit", "write"]) {
+    const render = extension.tools.get(name).definition.renderResult;
+    const ctx = resultContext({ expanded: false });
+    const options = { expanded: false, isPartial: false };
+    const result = { content: [{ type: "text", text: "first\n\nsecond" }], details: {} };
+    let component = render(result, options, theme, ctx);
+    ctx.lastComponent = component;
+    const nativeSetText = component.setText;
+    let writes = 0;
+    component.setText = function (...args) { writes++; return nativeSetText.apply(this, args); };
+    const nativeSplit = String.prototype.split;
+    let outputSplits = 0;
+    String.prototype.split = function (...args) {
+      if (String(this) === "first\n\nsecond") outputSplits++;
+      return nativeSplit.apply(this, args);
+    };
+    try { assert.equal(render(result, options, theme, ctx), component); }
+    finally { String.prototype.split = nativeSplit; }
+    assert.equal(outputSplits, 0, `${name} must not resplit unchanged output`);
+    assert.equal(writes, 0, `${name} must reuse unchanged output`);
+    result.content[0].text = "changed\nthird\nfourth";
+    options.expanded = ctx.expanded = true;
+    ctx.isError = true;
+    component = render(result, options, theme, ctx);
+    ctx.lastComponent = component;
+    assert.match(display(component).join("\n"), /changed/);
+    assert.doesNotMatch(display(component).join("\n"), /first|second/);
+    result.content.push({ type: "text", text: "last block" });
+    component = render(result, options, theme, ctx);
+    ctx.lastComponent = component;
+    assert.match(display(component).join("\n"), /last block/);
+    options.isPartial = true;
+    component = render(result, options, theme, ctx);
+    ctx.lastComponent = component;
+    assert.doesNotMatch(display(component).join("\n"), /changed|last block/);
+    options.isPartial = false;
+    component = render(result, options, theme, ctx);
+    ctx.lastComponent = component;
+    assert.match(display(component).join("\n"), /last block/);
+    const colors = theme.fgAnsi ?? theme.fgColors;
+    const key = CONFIG.tools.general.outputColor;
+    const previous = colors.get(key);
+    const before = component.render(80).join("\n");
+    try {
+      colors.set(key, "\x1b[31m");
+      component.invalidate();
+      component = render(result, options, theme, ctx);
+      assert.notEqual(component.render(80).join("\n"), before, `${name} must refresh an in-place theme change`);
+    } finally { colors.set(key, previous); }
+  }
+});
+
+test("expanded Read retains Markdown width cache across display refresh and collapse", () => {
+  const component = tool("read", extension.tools.get("read").definition);
+  try {
+    component.updateArgs({ path: "cache.md" });
+    const result = { content: [{ type: "text", text: "# First\n\nMarkdown body" }], details: {} };
+    component.updateResult(result, false);
+    component.setExpanded(true);
+    const markdown = component.resultRendererComponent;
+    const rows = markdown.render(80);
+    component.updateResult(result, false);
+    assert.equal(component.resultRendererComponent, markdown, "display refresh must retain MarkdownResult");
+    assert.equal(markdown.render(80), rows, "retained MarkdownResult must retain rendered width cache");
+    component.setExpanded(false);
+    component.setExpanded(true);
+    assert.equal(component.resultRendererComponent, markdown, "collapse must not discard expanded Markdown cache");
+    assert.equal(markdown.render(80), rows);
+    assert.notEqual(markdown.render(30), rows);
+    markdown.invalidate();
+    assert.notEqual(markdown.render(80), rows);
+    result.content[0].text = "# Updated\n\nnew content";
+    component.updateResult(result, false);
+    assert.match(display(component).join("\n"), /Updated|new content/);
+    assert.doesNotMatch(display(component).join("\n"), /First|Markdown body/);
+    const colors = theme.fgAnsi ?? theme.fgColors;
+    const previous = colors.get("mdHeading");
+    const before = component.render(80).join("\n");
+    try {
+      colors.set("mdHeading", "\x1b[31m");
+      component.invalidate();
+      assert.notEqual(component.render(80).join("\n"), before);
+    } finally { colors.set("mdHeading", previous); }
+  } finally { finishTool(component); }
+});
+
+test("collapsed Read invalidation refreshes retained Markdown after in-place theme changes", () => {
+  const component = tool("read", extension.tools.get("read").definition);
+  const colors = theme.fgAnsi ?? theme.fgColors;
+  const previous = colors.get("mdHeading");
+  try {
+    component.updateArgs({ path: "theme.md" });
+    component.updateResult({ content: [{ type: "text", text: "# Heading" }], details: {} }, false);
+    component.setExpanded(true);
+    const markdown = component.resultRendererComponent;
+    const before = markdown.render(80).join("\n");
+    component.setExpanded(false);
+    colors.set("mdHeading", "\x1b[31m");
+    component.invalidate();
+    component.setExpanded(true);
+    assert.equal(component.resultRendererComponent, markdown);
+    assert.notEqual(markdown.render(80).join("\n"), before, "detached Markdown must observe native theme invalidation");
+  } finally {
+    colors.set("mdHeading", previous);
+    finishTool(component);
+  }
+});
+
+test("Bash spinner ticks do not scan output lines, and native invalidation refreshes theme", () => {
+  const component = new pi.BashExecutionComponent("large output", ui);
+  const colors = theme.fgAnsi ?? theme.fgColors;
+  const color = CONFIG.tools.general.outputColor;
+  const previous = colors.get(color);
+  let reads = 0;
+  const lines = new Proxy(Array.from({ length: 200 }, (_, i) => `line-${i}`), {
+    get(target, key, receiver) {
+      if (/^\d+$/.test(String(key))) reads++;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  try {
+    component.outputLines = lines;
+    component.setExpanded(true);
+    const before = component.render(80).join("\n");
+    reads = 0;
+    for (let i = 0; i < 10; i++) { component._spinnerFrame++; component.updateDisplay(); }
+    assert.ok(reads <= 10, `spinner may only check the last line, not rescan all output: ${reads} reads`);
+    colors.set(color, "\x1b[31m");
+    component.invalidate();
+    assert.notEqual(component.render(80).join("\n"), before);
+    component.appendOutput(" same-line");
+    assert.match(display(component).join("\n"), /line-199 same-line/);
+    component.setComplete(0, false);
+    assert.match(display(component).join("\n"), /200 lines/);
+  } finally { colors.set(color, previous); component.setComplete(0, false); }
+});
+
+test("cached output respects trimming changes and context truncation flags", async () => {
+  // The Pi loader uses moduleCache:false; direct renderer imports share this CONFIG.
+  const { renderBashResult } = await jiti.import(join(extensionDir, "components/base-renderer.ts"));
+  const previous = CONFIG.tools.general.maxExpandedLines;
+  const component = new pi.BashExecutionComponent("truncate", ui);
+  const ctx = resultContext();
+  const options = { expanded: true, isPartial: false };
+  const result = { content: [{ type: "text", text: "first\nsecond\nthird\nfourth" }], details: {} };
+  try {
+    ctx.lastComponent = renderBashResult(result, options, theme, ctx);
+    CONFIG.tools.general.maxExpandedLines = 2;
+    ctx.lastComponent = renderBashResult(result, options, theme, ctx);
+    assert.match(display(ctx.lastComponent).join("\n"), /2 lines above/);
+    assert.doesNotMatch(display(ctx.lastComponent).join("\n"), /first|second/);
+    CONFIG.tools.general.maxExpandedLines = 0;
+    ctx.lastComponent = renderBashResult(result, options, theme, ctx);
+    assert.match(display(ctx.lastComponent).join("\n"), /first/);
+    component.setComplete(0, false);
+    component.setExpanded(true);
+    component.outputLines = Array.from({ length: pi.DEFAULT_MAX_LINES + 1 }, (_, i) => `context-${i}`);
+    component.fullOutputPath = "/tmp/context.txt";
+    assert.match(display(component).join("\n"), /Output truncated.*context\.txt/);
+    component.outputLines = ["short"];
+    const output = display(component).join("\n");
+    assert.match(output, /short/);
+    assert.doesNotMatch(output, /Output truncated|context-/);
+  } finally { CONFIG.tools.general.maxExpandedLines = previous; component.setComplete(0, false); }
+});
+
+test("retained Markdown derives live indent width after prefix config changes", async () => {
+  const { createMarkdownResult } = await jiti.import(join(extensionDir, "components/markdown-result.ts"));
+  const previous = CONFIG.tools.toolBranch.prefix;
+  try {
+    const component = createMarkdownResult("", "ABCDEFGH", mdTheme, "head-tail", theme, true);
+    component.render(10);
+    CONFIG.tools.toolBranch.prefix = ">>>>>";
+    component.invalidate();
+    assert.deepEqual(display(component, 10).map((row) => row.trim()).filter(Boolean), ["ABCD", "EFGH"]);
+    CONFIG.tools.toolBranch.prefix = ">";
+    assert.deepEqual(display(component, 10).map((row) => row.trim()).filter(Boolean), ["ABCDEFGH"],
+      "runtime indent change must also invalidate the same-width result cache");
+    assertFits(component, 10);
+  } finally { CONFIG.tools.toolBranch.prefix = previous; }
+});
+
+test("Read output cache observes in-place image/text/image transitions and counts", () => {
+  const render = extension.tools.get("read").definition.renderResult;
+  const ctx = resultContext({ expanded: false });
+  const options = { expanded: false, isPartial: false };
+  const result = { content: [{ type: "image", data: "", mimeType: "image/png" }], details: {} };
+  ctx.lastComponent = render(result, options, theme, ctx);
+  assert.match(display(ctx.lastComponent).join("\n"), /1 image/);
+  result.content[0] = { type: "text", text: "one\n\ntwo" };
+  ctx.lastComponent = render(result, options, theme, ctx);
+  assert.match(display(ctx.lastComponent).join("\n"), /2 lines/);
+  assert.doesNotMatch(display(ctx.lastComponent).join("\n"), /image/);
+  result.content.splice(0, 1, { type: "image", data: "", mimeType: "image/png" },
+    { type: "image", data: "", mimeType: "image/png" });
+  ctx.lastComponent = render(result, options, theme, ctx);
+  assert.match(display(ctx.lastComponent).join("\n"), /2 images/);
+  assert.doesNotMatch(display(ctx.lastComponent).join("\n"), /lines/);
+  ctx.isError = true;
+  ctx.lastComponent = render(result, options, theme, ctx);
+  assert.match(display(ctx.lastComponent).join("\n"), /Error.*2 images/);
+});
+
 test("shared text gathering retains every block and blank line", () => {
   assert.equal(shared.getFirstTextContent({ content: [
     { type: "text", text: "first\n\n" }, { type: "image", data: "", mimeType: "image/png" },

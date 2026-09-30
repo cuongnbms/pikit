@@ -5,8 +5,7 @@ import { CONFIG } from "../config.js";
 import { getVisibleWidth, wrapAnsiToWidth } from "../utils.js";
 import { formatExpandedLines, indentLine } from "./tool-shared.js";
 import type { TrimStrategy } from "../types.js";
-
-const INDENT_WIDTH = getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
+import { outputStyleKey } from "./output-cache.js";
 
 export interface MarkdownResult extends Component {
   render(width: number): string[];
@@ -23,6 +22,7 @@ export function createMarkdownResult(
 ): MarkdownResult {
   const md = new Markdown(text, 0, 0, markdownTheme);
   let cachedWidth: number | undefined;
+  let cachedStyle: string | undefined;
   let cachedLines: string[] | undefined;
 
   function invalidate(): void {
@@ -32,7 +32,9 @@ export function createMarkdownResult(
   }
 
   function render(width: number): string[] {
-    if (cachedLines && cachedWidth === width) return cachedLines;
+    const style = outputStyleKey(toolTheme);
+    if (cachedLines && cachedWidth === width && cachedStyle === style) return cachedLines;
+    cachedStyle = style;
 
     if (width <= 0) {
       cachedWidth = width;
@@ -41,7 +43,8 @@ export function createMarkdownResult(
     }
 
     // Render markdown at reduced width to account for indent added by formatExpandedLines
-    const contentWidth = Math.max(1, width - INDENT_WIDTH);
+    const indentWidth = getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
+    const contentWidth = Math.max(1, width - indentWidth);
     const mdLines = md.render(contentWidth);
 
     let formatted: string;

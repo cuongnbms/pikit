@@ -12,7 +12,7 @@ const { loadExtensions } = await import(pathToFileURL(join(piDir, "dist/core/ext
 
 // A leftover discoverable extension would register removed commands/tools even
 // when the installer and UI no longer advertise them.
-test("discoverable extensions do not register the removed mode workflow", async () => {
+test("discoverable extensions omit removed workflows and Artifacts while retaining native tools", async () => {
   const extensionDir = join(root, "agent", "extensions");
   const entries = await readdir(extensionDir, { withFileTypes: true });
   const paths = entries.filter((entry) => entry.isDirectory())
@@ -27,6 +27,7 @@ test("discoverable extensions do not register the removed mode workflow", async 
   assert.equal(tools.includes("plan_complete"), false);
   assert.equal(flags.includes("chat"), false);
   assert.equal(flags.includes("plan"), false);
-  assert.ok(tools.includes("artifact"), "the artifact tool remains available");
+  assert.equal(commands.includes("artifacts"), false, "Artifacts command is no longer exposed");
+  assert.equal(tools.includes("artifact"), false, "Artifacts tool is no longer exposed");
   assert.ok(tools.includes("read"), "styled native tools remain available");
 });

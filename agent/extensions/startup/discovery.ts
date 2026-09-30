@@ -1,3 +1,4 @@
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readdirSync, existsSync, statSync, readFileSync, type Dirent } from "node:fs";
 import { join, resolve, relative, basename } from "node:path";
 import { sep } from "node:path";
@@ -300,8 +301,9 @@ function countExtensions(homeDir: string, cwd: string): number {
   return seen.size;
 }
 
-export interface LoadedCounts {
-  models: number;
+export interface StartupCounts {
+  models?: number;
+  modelSource?: "scoped" | "available";
   contextFiles: number;
   extensions: number;
   skills: number;
@@ -395,30 +397,19 @@ function countTemplates(commands: CommandLike): number {
   return seen.size;
 }
 
-function countModels(homeDir: string, cwd: string): number {
-  const seen = new Set<string>();
-  const paths = [
-    join(homeDir, ".pi", "agent", "settings.json"),
-    join(cwd, ".pi", "settings.json"),
-  ];
-  for (const path of paths) {
-    if (!existsSync(path)) continue;
-    try {
-      const settings = JSON.parse(readFileSync(path, "utf8"));
-      const arr = settings?.enabledModels;
-      if (Array.isArray(arr)) {
-        for (const m of arr) if (typeof m === "string" && m.trim()) seen.add(m.trim());
-      }
-    } catch {}
-  }
-  return seen.size;
-}
-
-export function discoverLoadedCounts(commands: CommandLike): LoadedCounts {
+export function discoverStartupCounts(
+  commands: CommandLike,
+  ctx: Partial<Pick<ExtensionContext, "cwd" | "scopedModels" | "modelRegistry">> = {},
+): StartupCounts {
   const homeDir = osHomedir();
-  const cwd = process.cwd();
+  const cwd = ctx.cwd ?? process.cwd();
+  // An empty scope means all available models, not an empty model catalogue.
+  // enabledModels is a list of patterns, never a resolved count.
+  const scoped = ctx.scopedModels;
+  const available = scoped?.length ? undefined : ctx.modelRegistry?.getAvailable?.();
   return {
-    models: countModels(homeDir, cwd),
+    models: scoped?.length ? scoped.length : available?.length,
+    modelSource: scoped?.length ? "scoped" : available ? "available" : undefined,
     contextFiles: countContextFiles(homeDir, cwd),
     extensions: countExtensions(homeDir, cwd),
     skills: countSkills(commands),

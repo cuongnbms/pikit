@@ -51,24 +51,3 @@ For multi-step tasks, state a brief plan:
 2. [Step] → verify: [check]
 3. [Step] → verify: [check]
 ```
-
-## 5. Visual Output → Artifacts
-
-When output is inherently visual or longer than a screen — reports, diagrams,
-rendered diffs, comparison tables — prefer emitting it via the `artifact` tool
-over printing it in the terminal. The `artifact` tool renders markdown (with
-`diff`/`mermaid`/code fences handled) or raw HTML to a styled page opened in
-the browser, with live reload on `update`. Use `kind: "markdown"` for prose,
-tables, and diffs; `kind: "html"` only when markdown can't express it.
-
-When writing `kind: "html"` fragments: the shell already provides the design
-system — system fonts, light/dark scheme, and CSS variables (`--bg`, `--fg`,
-`--muted`, `--border`, `--code-bg`, `--accent`). Write clean semantic HTML,
-use those variables in any scoped `<style>`, never hardcode colors or fonts.
-Aim for quiet, minimal, document-like pages: hairline borders, generous
-whitespace, one accent. No CSS frameworks, no resets, no `<html>`/`<head>`
-boilerplate (fragments are injected into the shell).
-
-For Chart.js pages: put each canvas in its own container div with an explicit
-height and `width: 100%`, and set `maintainAspectRatio: false` so charts fill
-the available width instead of stopping at their intrinsic size.

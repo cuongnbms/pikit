@@ -28,8 +28,7 @@ agent/
     ├── footer/                  # Status bar with git, tokens, cost, context
     ├── spinners/                # Rotating spinner verbs while the agent thinks
     ├── startup/                 # Welcome header shown at session start
-    ├── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
-    └── artifacts/               # Visual HTML artifacts (markdown/html) on a lazy localhost server with live reload
+    └── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
 ```
 
 ---
@@ -85,6 +84,32 @@ pnpm install
 
 > Only local development uses pnpm. End users installing via `pi install npm:@adrianapan/pikit` are unaffected — Pi still installs the published package with npm.
 
+#### Development checks
+
+The dev API baseline is pinned to **Pi 0.99.1**; host-provided Pi packages remain
+wildcard peer dependencies and are not bundled.
+
+```bash
+pnpm check
+pnpm test
+```
+
+To run runtime regression tests against another installed Pi host:
+
+```bash
+PI_TEST_CODING_AGENT_DIR=/absolute/path/to/@earendil-works/pi-coding-agent pnpm test
+```
+
+This override changes the runtime test host, not the TypeScript baseline.
+
+#### Artifacts removal
+
+Pikit no longer includes the Artifacts extension or its `artifact` tool and
+`/artifacts` command. After updating, run `setup.sh --system-prompt` to remove
+the old artifact instructions from the installed `APPEND_SYSTEM.md` (the previous
+file is backed up). Existing generated HTML files and user configuration are left
+untouched.
+
 #### Minimum release age
 
 `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (10080 minutes = **7 days**). pnpm refuses to install any package version published less than a week ago, so a compromised release has time to be caught and yanked before it can land in the lockfile.
@@ -96,7 +121,10 @@ minimumReleaseAgeExclude:
   - 'some-package@1.2.3'
 ```
 
-The same file also carries an `allowBuilds` block — pnpm blocks dependency install scripts by default, and the two transitive dev-only entries listed there are deliberately left unbuilt.
+The selected Pi/Chord `0.99.1` dev baseline has exact-version age exceptions;
+other versions and packages still use the 7-day gate.
+
+The same file also carries an `allowBuilds` block — pnpm blocks dependency install scripts by default, and the transitive dev-only entries listed there are deliberately left unbuilt.
 
 ---
 
@@ -107,7 +135,6 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 
 * **styled-outputs** — Swaps flat console readouts for color-coded diff blocks, expandable sections, custom icons, and visual tool groups. → [`README`](agent/extensions/styled-outputs/README.md)
 * **footer** — A dense, customized status line detailing active models, token metrics, live run costs, and current git state. Supports Nerd Fonts and ASCII fallbacks. → [`README`](agent/extensions/footer/README.md)
-* **artifacts** — Renders rich markdown, HTML, and Mermaid diagrams to a self-contained local browser tab featuring live-reloading. → [`README`](agent/extensions/artifacts/README.md)
 * **chat-input** — Draws a stylized, isolated Unicode frame around your active terminal prompt line while preserving all underlying editing shortcuts. → [`README`](agent/extensions/chat-input/README.md)
 * **spinners** — Trades static loader indicators for dynamic, timed thinking states and live token accumulators. → [`README`](agent/extensions/spinners/README.md)
 * **startup** — Displays a concise diagnostic dashboard on boot, mapping out active plugins, server states, and shortcut reminders. → [`README`](agent/extensions/startup/README.md)
@@ -124,7 +151,7 @@ A warm, earthy palette with terracotta primary (`#d67858`) and warm-white text (
 
 ## System prompt
 
-Pi appends [`agent/APPEND_SYSTEM.md`](agent/APPEND_SYSTEM.md) to its default system prompt every session (no extension code involved). It's a trimmed and adapted version of [Andrej Karpathy's coding guidelines](https://github.com/forrestchang/andrej-karpathy-skills/blob/main/CLAUDE.md): think before coding, simplicity first, surgical changes, goal-driven execution, and a fifth nudge to emit visual output via the `artifact` tool.
+Pi appends [`agent/APPEND_SYSTEM.md`](agent/APPEND_SYSTEM.md) to its default system prompt every session (no extension code involved). It's a trimmed and adapted version of [Andrej Karpathy's coding guidelines](https://github.com/forrestchang/andrej-karpathy-skills/blob/main/CLAUDE.md): think before coding, simplicity first, surgical changes, and goal-driven execution.
 
 ---
 
