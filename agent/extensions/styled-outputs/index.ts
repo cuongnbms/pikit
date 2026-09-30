@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadTool, createBashTool, createEditTool, createWriteTool, createLsTool, createGrepTool, createFindTool, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
+import { AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
 import { Markdown, Text } from "@earendil-works/pi-tui";
 import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, toolPrefix, errorPrefix } from "./utils.js";
 import { CONFIG } from "./config.js";
@@ -361,19 +361,12 @@ export default function styledOutputs(pi: ExtensionAPI) {
   }
 
   // --- Register styled tool renderers ---
+  // Keep native definitions (including execute and its session context); only override rendering.
   const cwd = process.cwd();
 
-  const readTool = createReadTool(cwd);
+  const readTool = createReadToolDefinition(cwd);
   pi.registerTool({
-    name: "read",
-    label: "read",
-    description: readTool.description,
-    promptSnippet: "Read file contents",
-    promptGuidelines: ["Use read to examine files instead of cat or sed."],
-    parameters: readTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return readTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...readTool,
     renderCall(args, theme, ctx) {
       return renderReadCall(args, theme, ctx);
     },
@@ -382,16 +375,9 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const bashTool = createBashTool(cwd);
+  const bashTool = createBashToolDefinition(cwd);
   pi.registerTool({
-    name: "bash",
-    label: "bash",
-    description: bashTool.description,
-    promptSnippet: "Execute bash commands (ls, grep, find, etc.)",
-    parameters: bashTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return bashTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...bashTool,
     renderCall(args, theme, ctx) {
       return renderBashCall(args, theme, ctx);
     },
@@ -400,18 +386,10 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const editTool = createEditTool(cwd);
+  const editTool = createEditToolDefinition(cwd);
   pi.registerTool({
-    name: "edit",
-    label: "edit",
-    description: editTool.description,
-    promptSnippet: "Make precise file edits with exact text replacement, including multiple disjoint edits in one call",
+    ...editTool,
     renderShell: "default",
-    prepareArguments: editTool.prepareArguments,
-    parameters: editTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return editTool.execute(toolCallId, params, signal, onUpdate);
-    },
     renderCall(args, theme, ctx) {
       return renderEditCall(args, theme, ctx);
     },
@@ -420,17 +398,9 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const writeTool = createWriteTool(cwd);
+  const writeTool = createWriteToolDefinition(cwd);
   pi.registerTool({
-    name: "write",
-    label: "write",
-    description: writeTool.description,
-    promptSnippet: "Create or overwrite files",
-    promptGuidelines: ["Use write only for new files or complete rewrites."],
-    parameters: writeTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return writeTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...writeTool,
     renderCall(args, theme, ctx) {
       return renderWriteCall(args, theme, ctx);
     },
@@ -439,17 +409,13 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const grepTool = createGrepTool(cwd);
+  const grepTool = createGrepToolDefinition(cwd);
   pi.registerTool({
-    name: "grep",
-    label: "grep",
-    description: grepTool.description,
-    promptSnippet: "Search file contents for patterns (respects .gitignore)",
-    promptGuidelines: ["Prefer grep/find over bash for file exploration (faster, respects .gitignore)"],
-    parameters: grepTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return grepTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...grepTool,
+    promptGuidelines: [
+      ...(grepTool.promptGuidelines ?? []),
+      "Prefer grep/find over bash for file exploration (faster, respects .gitignore)",
+    ],
     renderCall(args, theme, ctx) {
       return renderGrepCall(args, theme, ctx);
     },
@@ -458,17 +424,13 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const findTool = createFindTool(cwd);
+  const findTool = createFindToolDefinition(cwd);
   pi.registerTool({
-    name: "find",
-    label: "find",
-    description: findTool.description,
-    promptSnippet: "Find files by glob pattern (respects .gitignore)",
-    promptGuidelines: ["Prefer grep/find over bash for file exploration (faster, respects .gitignore)"],
-    parameters: findTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return findTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...findTool,
+    promptGuidelines: [
+      ...(findTool.promptGuidelines ?? []),
+      "Prefer grep/find over bash for file exploration (faster, respects .gitignore)",
+    ],
     renderCall(args, theme, ctx) {
       return renderFindCall(args, theme, ctx);
     },
@@ -477,16 +439,9 @@ export default function styledOutputs(pi: ExtensionAPI) {
     },
   });
 
-  const lsTool = createLsTool(cwd);
+  const lsTool = createLsToolDefinition(cwd);
   pi.registerTool({
-    name: "ls",
-    label: "ls",
-    description: lsTool.description,
-    promptSnippet: "List directory contents",
-    parameters: lsTool.parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      return lsTool.execute(toolCallId, params, signal, onUpdate);
-    },
+    ...lsTool,
     renderCall(args, theme, ctx) {
       return renderLsCall(args, theme, ctx);
     },
