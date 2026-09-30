@@ -156,9 +156,9 @@ export function buildShell(opts: {
   kind: "markdown" | "html";
   bodyHtml: string;
   flags: RenderFlags;
-}): string {
+}, cwd = process.cwd()): string {
   const { title, slug, kind, bodyHtml, flags } = opts;
-  const projectPath = process.cwd();
+  const projectPath = cwd;
   const generated = Date.now();
 
   const styles: string[] = [`<style data-base>${BASE_CSS}</style>`];
@@ -198,14 +198,14 @@ ${scripts.join("\n")}
 }
 
 /** Render a markdown artifact to a full HTML document. */
-export function renderMarkdownDocument(title: string, slug: string, content: string): string {
+export function renderMarkdownDocument(title: string, slug: string, content: string, cwd = process.cwd()): string {
   const flags: RenderFlags = { hasMermaid: false, hasDiff: false, hasCode: false };
   const bodyHtml = renderMarkdown(content, flags);
-  return buildShell({ title, slug, kind: "markdown", bodyHtml, flags });
+  return buildShell({ title, slug, kind: "markdown", bodyHtml, flags }, cwd);
 }
 
 /** Render an html artifact: full documents get the shell's metadata metas + SSE reload snippet spliced in; fragments get the full shell. */
-export function renderHtmlDocument(title: string, slug: string, content: string): string {
+export function renderHtmlDocument(title: string, slug: string, content: string, cwd = process.cwd()): string {
   const trimmed = content.trimStart();
   const isFullDoc = /^<!doctype/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
   if (isFullDoc) {
@@ -215,7 +215,7 @@ export function renderHtmlDocument(title: string, slug: string, content: string)
     // on the index page (date + kind badge) and let `update` live-reload like any
     // other artifact. Skip any meta the document already declares to avoid dupes.
     const generated = Date.now();
-    const projectPath = process.cwd();
+    const projectPath = cwd;
     const metas: string[] = [];
     if (!content.includes('name="artifact-kind"')) metas.push(`<meta name="artifact-kind" content="html">`);
     if (!content.includes('name="artifact-generated"')) metas.push(`<meta name="artifact-generated" content="${generated}">`);
@@ -238,12 +238,12 @@ export function renderHtmlDocument(title: string, slug: string, content: string)
   }
 
   const flags: RenderFlags = { hasMermaid: false, hasDiff: false, hasCode: false };
-  return buildShell({ title, slug, kind: "html", bodyHtml: content, flags });
+  return buildShell({ title, slug, kind: "html", bodyHtml: content, flags }, cwd);
 }
 
 /** Build the index page listing all artifacts, newest first. */
-export function renderIndexPage(entries: { slug: string; title: string; kind: string; mtime: number }[]): string {
-  const projectPath = process.cwd();
+export function renderIndexPage(entries: { slug: string; title: string; kind: string; mtime: number }[], cwd = process.cwd()): string {
+  const projectPath = cwd;
   const rows = entries.map((e) => {
     const when = e.mtime ? new Date(e.mtime).toISOString().replace("T", " ").slice(0, 19) : "";
     const href = `/${e.slug}.html`;

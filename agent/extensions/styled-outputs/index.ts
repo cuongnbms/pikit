@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
-import { Markdown, Text } from "@earendil-works/pi-tui";
-import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, toolPrefix, errorPrefix } from "./utils.js";
+import { Theme, AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
+import { Box, Markdown, Text } from "@earendil-works/pi-tui";
+import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, toolPrefix, errorPrefix, fitLineToWidth } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { createAssistantMessage } from "./components/assistant-message.js";
 import { createThinkingMessage } from "./components/thinking-message.js";
@@ -18,41 +18,50 @@ import {
 import { renderFallbackCall, renderFallbackResult } from "./components/fallback-renderer.js";
 import { createSkillInvocationMessage } from "./components/skill-message.js";
 import { createCustomMessage } from "./components/custom-message.js";
-import { branchLine, doneLabel, errorLabel, expandHint, formatExpandedLines } from "./components/tool-shared.js";
+import { branchLine, doneLabel, errorLabel, expandHint, formatExpandedLines, startToolSpinnerSession, stopToolSpinners } from "./components/tool-shared.js";
 
 export default function styledOutputs(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     setCurrentTheme(ctx.ui.theme);
+    startToolSpinnerSession();
   });
+  pi.on("session_shutdown", stopToolSpinners);
 
   // --- Patch AssistantMessageComponent ---
   const assistantProto = AssistantMessageComponent.prototype as any;
   if (!assistantProto[PATCH_FLAG]) {
     const originalUpdateContent = assistantProto.updateContent;
-    assistantProto.updateContent = function patchedUpdateContent(message: any) {
+    assistantProto.updateContent = function patchedUpdateContent(message: any, ...args: any[]) {
       if (!message?.content || !Array.isArray(message.content)) {
-        return originalUpdateContent.call(this, message);
+        return originalUpdateContent.call(this, message, ...args);
       }
 
-      originalUpdateContent.call(this, message);
+      originalUpdateContent.call(this, message, ...args);
 
       const container = this.contentContainer;
       if (!container?.children) return;
 
-      const mdTheme = this.markdownTheme;
       for (let i = container.children.length - 1; i >= 0; i--) {
-        const child = container.children[i];
-        if (child instanceof Markdown) {
-          const mdChild = child as any;
-          const text = mdChild.text;
-          if (!text) continue;
+        const child = container.children[i] as any;
+        const mdChild = child instanceof Markdown
+          ? child
+          : child?.child instanceof Markdown
+            ? child.child
+            : undefined;
+        if (!mdChild) continue;
 
-          const isThinking = !!mdChild.defaultTextStyle?.italic;
-          if (isThinking) {
-            container.children[i] = createThinkingMessage(text, mdTheme);
-          } else {
-            container.children[i] = createAssistantMessage(text, mdTheme);
-          }
+        const text = mdChild.text;
+        if (!text) continue;
+
+        const isThinking = !!mdChild.defaultTextStyle?.italic;
+        const replacement = isThinking
+          ? createThinkingMessage(text, mdChild)
+          : createAssistantMessage(text, mdChild);
+
+        if (child instanceof Markdown) {
+          container.children[i] = replacement;
+        } else {
+          child.child = replacement;
         }
       }
     };
@@ -65,26 +74,26 @@ export default function styledOutputs(pi: ExtensionAPI) {
   if (!userProto[PATCH_FLAG]) {
     const originalUserRender = userProto.render;
     userProto.render = function patchedUserRender(width: number) {
-      const contentBox = this.contentBox;
-      if (contentBox?.children && !this._styledReplaced) {
+      if (width <= 0) return [];
+      const contentBox = this.children?.find((child: any) => child instanceof Box && Array.isArray(child.children));
+      if (contentBox?.children) {
         for (let i = 0; i < contentBox.children.length; i++) {
           const child = contentBox.children[i];
           if (child instanceof Markdown) {
             const mdChild = child as any;
             const text = mdChild.text;
             if (text) {
-              contentBox.children[i] = createUserMessage(text, mdChild.theme);
+              contentBox.children[i] = createUserMessage(text, mdChild);
             }
           }
         }
-        
+
         contentBox.paddingX = 0;
-        
+
         if (!CONFIG.userMessage.isThemeBackgroundVisible) {
           contentBox.paddingY = 0;
           contentBox.setBgFn(undefined);
         }
-        this._styledReplaced = true;
       }
       return originalUserRender.call(this, width);
     };
@@ -97,10 +106,7 @@ export default function styledOutputs(pi: ExtensionAPI) {
   if (!toolProto[PATCH_FLAG]) {
     const originalUpdateDisplay = toolProto.updateDisplay;
     toolProto.updateDisplay = function patchedUpdateDisplay() {
-      const savedResult = this.result;
-      if (this.isPartial) this.result = undefined;
       originalUpdateDisplay.call(this);
-      this.result = savedResult;
       if (this.contentBox) {
         this.contentBox.paddingY = CONFIG.tools.general.verticalPadding;
         this.contentBox.paddingX = CONFIG.tools.general.horizontalPadding;
@@ -116,6 +122,17 @@ export default function styledOutputs(pi: ExtensionAPI) {
           this.contentBox.setBgFn(undefined);
         }
       }
+    };
+
+    // Native Box padding is fixed; reduce our margins when the terminal is narrower.
+    const originalToolRender = toolProto.render;
+    toolProto.render = function patchedToolRender(width: number) {
+      if (width <= 0) return [];
+      this.contentBox.paddingX = Math.min(
+        CONFIG.tools.general.horizontalPadding,
+        Math.max(0, Math.floor((width - 1) / 2)),
+      );
+      return originalToolRender.call(this, width).map((line: string) => fitLineToWidth(line, width));
     };
 
     // --- Inject fallback renderer for tools without custom renderers ---
@@ -219,18 +236,57 @@ export default function styledOutputs(pi: ExtensionAPI) {
 
   // --- Patch BashExecutionComponent (! / !! commands) ---
   const bashExecProto = BashExecutionComponent.prototype as any;
+  const BASH_STATE = Symbol.for("styled-outputs:bash-state");
+  const bashState = bashExecProto[BASH_STATE] ??= { timers: new Set<any>() };
+
+  const clearStyledBashTimer = (instance: any) => {
+    if (instance._spinnerInterval) {
+      clearInterval(instance._spinnerInterval);
+      bashState.timers.delete(instance._spinnerInterval);
+      instance._spinnerInterval = undefined;
+    }
+  };
+
+  pi.on("session_shutdown", async () => {
+    for (const timer of bashState.timers) {
+      clearInterval(timer);
+    }
+    bashState.timers.clear();
+  });
+
   if (!bashExecProto[PATCH_FLAG]) {
     const SPINNER_CHARS = CONFIG.tools.toolSpinnerPrefix.prefixChars;
     const SPINNER_FRAMES = [...SPINNER_CHARS, ...[...SPINNER_CHARS].reverse()];
     const SPINNER_INTERVAL = 80;
 
-    // Module-level state: user_bash fires before component construction,
-    // and constructor patching via prototype.constructor doesn't work with ES6 classes
-    let lastBashExcludeFromContext = false;
+    const deriveExcludeFromNativeInstance = (instance: any): boolean => {
+      if (typeof instance.excludeFromContext === "boolean") return instance.excludeFromContext;
+      // Pi 0.80–0.99 keeps the semantic token only in its native border closure.
+      // Observe that synchronous call, not ANSI equality (theme colors can coincide).
+      const originalFg = Theme.prototype.fg;
+      let token: string | undefined;
+      try {
+        Theme.prototype.fg = function (color, text) {
+          token = color;
+          return originalFg.call(this, color, text);
+        };
+        instance.children?.[1]?.color?.("");
+        return token === "dim";
+      } finally {
+        Theme.prototype.fg = originalFg;
+      }
+    };
 
-    pi.on("user_bash", async (event: any, _ctx: any) => {
-      lastBashExcludeFromContext = event.excludeFromContext;
-    });
+    const startStyledBashTimer = (instance: any) => {
+      if (instance.status !== "running" || instance._spinnerInterval) return;
+      instance._spinnerFrame = instance._spinnerFrame ?? 0;
+      instance._spinnerInterval = setInterval(() => {
+        instance._spinnerFrame = (instance._spinnerFrame + 1) % SPINNER_FRAMES.length;
+        instance.updateDisplay();
+        instance._tui?.requestRender();
+      }, SPINNER_INTERVAL);
+      bashState.timers.add(instance._spinnerInterval);
+    };
 
     // Patch render to call updateDisplay first — ensures styled output from
     // the very first frame (not the original bordered layout). Needed because
@@ -238,8 +294,9 @@ export default function styledOutputs(pi: ExtensionAPI) {
     // commands like `! sleep 5 && echo "test"` show unstyled for 5s.
     const origRender = bashExecProto.render;
     bashExecProto.render = function patchedRender(width: number) {
+      if (width <= 0) return [];
       this.updateDisplay();
-      return origRender.call(this, width);
+      return origRender.call(this, width).map((line: string) => fitLineToWidth(line, width));
     };
 
     // Replace updateDisplay with styled version matching tool call pattern
@@ -248,8 +305,10 @@ export default function styledOutputs(pi: ExtensionAPI) {
       const bc = CONFIG.bashExecution;
       const tc = CONFIG.tools;
 
-      // First-run: remove borders, stop loader, start spinner
+      // First-run: remove native frame and keep native per-instance Command/Shell state.
       if (!this._styledInitDone) {
+        this._excludeFromContext = deriveExcludeFromNativeInstance(this);
+
         // Remove borders + spacer from original constructor (children layout: Spacer, DynamicBorder, contentContainer, DynamicBorder)
         this.children.splice(this.children.length - 1, 1); // bottom border
         this.children.splice(1, 1);                        // top border
@@ -260,20 +319,14 @@ export default function styledOutputs(pi: ExtensionAPI) {
 
         // Store TUI ref for requestRender in spinner (Loader had it but we stopped it)
         this._tui = (this.loader as any).ui;
-
-        // Capture excludeFromContext per-instance — module-level variable
-        // changes on next command and would flip titles of previous components
-        this._excludeFromContext = lastBashExcludeFromContext;
-
-        // Start header spinner
         this._spinnerFrame = 0;
-        this._spinnerInterval = setInterval(() => {
-          this._spinnerFrame = (this._spinnerFrame + 1) % SPINNER_FRAMES.length;
-          this.updateDisplay();
-          this._tui?.requestRender();
-        }, SPINNER_INTERVAL);
-
         this._styledInitDone = true;
+      }
+
+      if (this.status === "running") {
+        startStyledBashTimer(this);
+      } else {
+        clearStyledBashTimer(this);
       }
 
       // Truncation
@@ -331,7 +384,7 @@ export default function styledOutputs(pi: ExtensionAPI) {
       let display = "\n" + headerLine + "\n" + statusLine;
 
       if (this.expanded && nonEmptyLines.length > 0) {
-        const styled = nonEmptyLines.map((l: string) => applyColor(t, tc.general.outputColor, l));
+        const styled = availableLines.map((l: string) => applyColor(t, tc.general.outputColor, l));
         display += formatExpandedLines(styled, "tail", t);
       }
 
@@ -349,12 +402,9 @@ export default function styledOutputs(pi: ExtensionAPI) {
 
     // Patch setComplete to clear spinner
     const OrigSetComplete = bashExecProto.setComplete;
-    bashExecProto.setComplete = function patchedSetComplete(exitCode: any, cancelled: any, truncationResult: any, fullOutputPath: any) {
-      if (this._spinnerInterval) {
-        clearInterval(this._spinnerInterval);
-        this._spinnerInterval = undefined;
-      }
-      OrigSetComplete.call(this, exitCode, cancelled, truncationResult, fullOutputPath);
+    bashExecProto.setComplete = function patchedSetComplete(...args: any[]) {
+      clearStyledBashTimer(this);
+      return OrigSetComplete.apply(this, args);
     };
 
     bashExecProto[PATCH_FLAG] = true;

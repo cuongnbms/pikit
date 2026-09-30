@@ -33,14 +33,37 @@ export function makeText(lastComponent: Text | undefined, text: string): Text {
 const SPINNER_CHARS = CONFIG.tools.toolSpinnerPrefix.prefixChars;
 const SPINNER_FRAMES = [...SPINNER_CHARS, ...[...SPINNER_CHARS].reverse()];
 const SPINNER_INTERVAL = 80;
+const SPINNER_STATE = Symbol.for("styled-outputs:tool-spinners");
+const spinnerState: { states: Set<any>; generation: number; active: boolean } =
+  (globalThis as any)[SPINNER_STATE] ??= { states: new Set(), generation: 0, active: false };
+
+export function stopToolSpinners(): void {
+  spinnerState.active = false;
+  for (const state of spinnerState.states) {
+    clearInterval(state.spinnerInterval);
+    state.spinnerInterval = undefined;
+  }
+  spinnerState.states.clear();
+}
+
+export function startToolSpinnerSession(): void {
+  stopToolSpinners();
+  spinnerState.generation++;
+  spinnerState.active = true;
+}
 
 export function ensureSpinner(ctx: any): number {
+  ctx.state.spinnerGeneration ??= spinnerState.generation;
+  if (!spinnerState.active || ctx.state.spinnerGeneration !== spinnerState.generation) return ctx.state.spinnerFrame ?? 0;
   if (ctx.state.spinnerInterval) return ctx.state.spinnerFrame ?? 0;
   ctx.state.spinnerFrame = 0;
-  ctx.state.spinnerInterval = setInterval(() => {
+  const timer = setInterval(() => {
+    if (!spinnerState.active || ctx.state.spinnerInterval !== timer) return;
     ctx.state.spinnerFrame = (ctx.state.spinnerFrame + 1) % SPINNER_FRAMES.length;
     ctx.invalidate();
   }, SPINNER_INTERVAL);
+  ctx.state.spinnerInterval = timer;
+  spinnerState.states.add(ctx.state);
   return 0;
 }
 
@@ -49,6 +72,7 @@ export function clearSpinner(ctx: any) {
     clearInterval(ctx.state.spinnerInterval);
     ctx.state.spinnerInterval = undefined;
   }
+  spinnerState.states.delete(ctx.state);
 }
 
 export function spinnerDot(theme: Theme, frame: number): string {
@@ -85,11 +109,21 @@ export function outputLines(text: string): string[] {
 }
 
 export function getFirstTextContent(result: any): string {
-  if (!result?.content) return "";
+  if (!Array.isArray(result?.content)) return "";
+  const blocks: string[] = [];
   for (const block of result.content) {
-    if (block?.type === "text" && block.text) return block.text;
+    if (block?.type === "text" && typeof block.text === "string") blocks.push(block.text);
   }
-  return "";
+  return blocks.join("\n");
+}
+
+export function getImageContentCount(result: any): number {
+  if (!Array.isArray(result?.content)) return 0;
+  return result.content.filter((block: any) => block?.type === "image").length;
+}
+
+export function renderSuppressedPartial(ctx: any): Text {
+  return makeText(ctx.lastComponent, "");
 }
 
 export function errorLabel(theme: Theme): string {

@@ -1,9 +1,18 @@
-import { Markdown } from "@earendil-works/pi-tui";
+import { Markdown, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth, hasVisibleContent, currentTheme, applyColor } from "../utils.js";
+import { hasVisibleContent, currentTheme, applyColor, renderMarkdownWithPadding } from "../utils.js";
 
-const ASSISTANT_PREFIX_WIDTH = getVisibleWidth(CONFIG.assistantMessage.prefix) + 2;
-const PADDING_PREFIX = " ".repeat(ASSISTANT_PREFIX_WIDTH);
+function assistantPrefix(): string {
+  const prefix = currentTheme
+    ? applyColor(currentTheme, CONFIG.assistantMessage.color, CONFIG.assistantMessage.prefix)
+    : CONFIG.assistantMessage.prefix;
+  return ` ${prefix} `;
+}
+
+function fitToWidth(line: string, width: number): string {
+  if (width <= 0) return "";
+  return visibleWidth(line) <= width ? line : truncateToWidth(line, width, "");
+}
 
 export interface AssistantMessage {
   invalidate(): void;
@@ -11,7 +20,10 @@ export interface AssistantMessage {
 }
 
 export function createAssistantMessage(text: string, markdownTheme: any): AssistantMessage {
-  const md = new Markdown(text, 0, 0, markdownTheme);
+  const md = markdownTheme instanceof Markdown
+    ? markdownTheme
+    : new Markdown(text, 0, 0, markdownTheme);
+  const preferredPadding = (md as any).paddingX ?? 0;
   let cachedWidth: number | undefined;
   let cachedLines: string[] | undefined;
 
@@ -24,27 +36,31 @@ export function createAssistantMessage(text: string, markdownTheme: any): Assist
   function render(width: number): string[] {
     if (cachedLines && cachedWidth === width) return cachedLines;
 
-    if (width <= ASSISTANT_PREFIX_WIDTH) {
+    if (width <= 0) {
       cachedWidth = width;
-      const prefix = currentTheme
-        ? applyColor(currentTheme, CONFIG.assistantMessage.color, CONFIG.assistantMessage.prefix)
-        : CONFIG.assistantMessage.prefix;
-      cachedLines = [` ${prefix} `];
+      cachedLines = [];
       return cachedLines;
     }
 
-    const mdLines = md.render(width - ASSISTANT_PREFIX_WIDTH);
+    const prefixText = assistantPrefix();
+    const prefixWidth = visibleWidth(prefixText);
+
+    if (width <= prefixWidth) {
+      cachedWidth = width;
+      cachedLines = [fitToWidth(prefixText.trim(), width)];
+      return cachedLines;
+    }
+
+    const mdLines = renderMarkdownWithPadding(md, width - prefixWidth, preferredPadding);
+    const paddingPrefix = " ".repeat(prefixWidth);
     let dotPlaced = false;
 
     const rendered = mdLines.map((line: string) => {
       if (!dotPlaced && hasVisibleContent(line)) {
         dotPlaced = true;
-        const prefix = currentTheme
-          ? applyColor(currentTheme, CONFIG.assistantMessage.color, CONFIG.assistantMessage.prefix)
-          : CONFIG.assistantMessage.prefix;
-        return ` ${prefix} ${line}`;
+        return fitToWidth(`${prefixText}${line}`, width);
       }
-      return `${PADDING_PREFIX}${line}`;
+      return fitToWidth(`${paddingPrefix}${line}`, width);
     });
 
     cachedWidth = width;

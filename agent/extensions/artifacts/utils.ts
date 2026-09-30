@@ -1,19 +1,19 @@
 /** Pure helpers: slugify, artifact file I/O, browser open. */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, normalize, sep } from "node:path";
+import { join, normalize, resolve, sep } from "node:path";
 import { spawn } from "node:child_process";
 
 import { ARTIFACT_DIR } from "./config.js";
 
 /** Absolute path to the artifacts dir for the current project. */
-export function artifactDir(): string {
-  return join(process.cwd(), ARTIFACT_DIR);
+export function artifactDir(cwd = process.cwd()): string {
+  return resolve(cwd, ARTIFACT_DIR);
 }
 
 /** Ensure the artifacts dir exists, return its absolute path. */
-export function ensureArtifactDir(): string {
-  const dir = artifactDir();
+export function ensureArtifactDir(cwd = process.cwd()): string {
+  const dir = artifactDir(cwd);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -38,28 +38,28 @@ export function isSafeSlug(slug: string): boolean {
 }
 
 /** Absolute path to a single artifact file. */
-export function artifactPath(slug: string): string {
-  return join(artifactDir(), `${slug}.html`);
+export function artifactPath(slug: string, cwd = process.cwd()): string {
+  return join(artifactDir(cwd), `${slug}.html`);
 }
 
 /** Write artifact HTML to <slug>.html, creating the dir lazily. */
-export function writeArtifact(slug: string, html: string): string {
-  ensureArtifactDir();
-  const path = artifactPath(slug);
+export function writeArtifact(slug: string, html: string, cwd = process.cwd()): string {
+  ensureArtifactDir(cwd);
+  const path = artifactPath(slug, cwd);
   writeFileSync(path, html, "utf-8");
   return path;
 }
 
 /** Read an artifact file, or null if missing. */
-export function readArtifact(slug: string): string | null {
-  const path = artifactPath(slug);
+export function readArtifact(slug: string, cwd = process.cwd()): string | null {
+  const path = artifactPath(slug, cwd);
   if (!existsSync(path)) return null;
   return readFileSync(path, "utf-8");
 }
 
 /** Does the artifact file exist? */
-export function artifactExists(slug: string): boolean {
-  return existsSync(artifactPath(slug));
+export function artifactExists(slug: string, cwd = process.cwd()): boolean {
+  return existsSync(artifactPath(slug, cwd));
 }
 
 export interface ArtifactEntry {
@@ -71,8 +71,8 @@ export interface ArtifactEntry {
 }
 
 /** List artifacts newest-first: slug + title (from <title>) + kind + mtime. */
-export function listArtifacts(): ArtifactEntry[] {
-  const dir = artifactDir();
+export function listArtifacts(cwd = process.cwd()): ArtifactEntry[] {
+  const dir = artifactDir(cwd);
   if (!existsSync(dir)) return [];
   const entries: ArtifactEntry[] = [];
   for (const file of readdirSync(dir)) {
@@ -108,8 +108,8 @@ function extractMtime(html: string): number | null {
 }
 
 /** Normalize a request path and confirm it resolves inside the artifacts dir. Returns null if unsafe. */
-export function safeArtifactPath(reqPath: string): string | null {
-  const dir = artifactDir();
+export function safeArtifactPath(reqPath: string, cwd = process.cwd()): string | null {
+  const dir = artifactDir(cwd);
   const target = normalize(join(dir, reqPath));
   if (!target.startsWith(dir + sep) && target !== dir) return null;
   return target;

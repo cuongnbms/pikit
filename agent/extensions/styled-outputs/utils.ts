@@ -1,5 +1,5 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { getKeybindings } from "@earendil-works/pi-tui";
+import { getKeybindings, truncateToWidth, visibleWidth as tuiVisibleWidth, wrapTextWithAnsi, type Markdown } from "@earendil-works/pi-tui";
 import { join, relative } from "node:path";
 import { CONFIG } from "./config.js";
 
@@ -27,7 +27,10 @@ export function setCurrentTheme(theme: Theme): void {
 }
 
 export function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
+  return text
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b[P^_][\s\S]*?\x1b\\/g, "")
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
 export function hasVisibleContent(line: string): boolean {
@@ -35,7 +38,28 @@ export function hasVisibleContent(line: string): boolean {
 }
 
 export function getVisibleWidth(text: string): number {
-  return text.replace(/\x1b\[[0-9;]*m/g, "").length;
+  return tuiVisibleWidth(text);
+}
+
+export function fitLineToWidth(line: string, width: number): string {
+  if (width <= 0) return "";
+  return getVisibleWidth(line) <= width ? line : truncateToWidth(line, width, width >= 1 ? "…" : "");
+}
+
+/** Retain native Markdown options while reserving room for body glyphs after our prefix. */
+export function renderMarkdownWithPadding(md: Markdown, width: number, preferredPadding: number): string[] {
+  const padding = Math.min(preferredPadding, Math.max(0, Math.floor((width - 2) / 2)));
+  if ((md as any).paddingX !== padding) {
+    (md as any).paddingX = padding;
+    md.invalidate();
+  }
+  return md.render(width);
+}
+
+export function wrapAnsiToWidth(text: string, width: number): string[] {
+  if (width <= 0) return [""];
+  const lines = wrapTextWithAnsi(text, width);
+  return (lines.length > 0 ? lines : [""]).map((line) => fitLineToWidth(line, width));
 }
 
 function hexToAnsi(hex: string): string {

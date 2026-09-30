@@ -4,9 +4,9 @@ import { CONFIG } from "../config.js";
 import { applyColor } from "../utils.js";
 import {
   makeText, toolHeader, expandHint,
-  outputLines, getFirstTextContent, errorLabel, renderPartial, doneLabel,
+  outputLines, getFirstTextContent, getImageContentCount, errorLabel, renderPartial, doneLabel,
   ensureSpinner, clearSpinner, spinnerDot, groupTitleColor,
-  formatExpandedLines,
+  formatExpandedLines, renderSuppressedPartial,
 } from "./tool-shared.js";
 
 const FALLBACK_TITLE_COLOR = groupTitleColor("custom");
@@ -37,8 +37,20 @@ export function renderFallbackCall(toolName: string, args: any, theme: Theme, ct
 }
 
 export function renderFallbackResult(toolName: string, result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const text = getFirstTextContent(result);
-  const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
+  const lines = outputLines(text);
+  const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
+  const imageCount = getImageContentCount(result);
+
+  if (nonEmptyLines.length === 0 && imageCount > 0) {
+    const count = { label: `image${imageCount > 1 ? "s" : ""}`, value: imageCount };
+    const status = ctx.isError
+      ? errorLabel(theme) + applyColor(theme, CONFIG.tools.general.countColor, ` • ${count.value} ${count.label}`)
+      : doneLabel(theme, count);
+    return makeText(ctx.lastComponent, status);
+  }
 
   if (ctx.isError) {
     if (!options.expanded) {
@@ -48,12 +60,12 @@ export function renderFallbackResult(toolName: string, result: any, options: { e
     return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
   }
 
-  const count = lines.length > 0 ? { label: "lines", value: lines.length } : undefined;
+  const count = nonEmptyLines.length > 0 ? { label: "lines", value: nonEmptyLines.length } : undefined;
 
   if (!options.expanded) {
-    return makeText(ctx.lastComponent, doneLabel(theme, count) + (lines.length > 0 ? expandHint(theme) : ""));
+    return makeText(ctx.lastComponent, doneLabel(theme, count) + (nonEmptyLines.length > 0 ? expandHint(theme) : ""));
   }
 
-  const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l || " "));
+  const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
   return makeText(ctx.lastComponent, doneLabel(theme, count) + formatExpandedLines(styled, "tail", theme));
 }

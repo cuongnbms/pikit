@@ -1,4 +1,5 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import type { Usage } from "@earendil-works/pi-ai";
 import type { IconSet } from "./icons.js";
 
 // Theme color - either a pi theme color name or a custom hex color
@@ -97,7 +98,8 @@ export interface SegmentContext {
   thinkingLevel: string;
   sessionId: string | undefined;
   usageStats: UsageStats;
-  contextPercent: number;
+  contextTokens: number | null;
+  contextPercent: number | null;
   contextWindow: number;
   usingSubscription: boolean;
   sessionStartTime: number;
@@ -119,18 +121,12 @@ export interface UserBashEvent {
   command: string;
 }
 
-// Minimal session event shapes used for footer stats
-export interface ThinkingLevelEvent {
-  type: "thinking_level_change";
-  thinkingLevel?: string;
+// Structural shape keeps newer usage entry categories compatible with Pi 0.80 types.
+export interface SessionEvent {
+  type: string;
+  message?: { role: string; usage?: Usage };
+  usage?: Usage;
 }
-
-export interface AssistantMessageEvent {
-  type: "message";
-  message: { role: string };
-}
-
-export type SessionEvent = ThinkingLevelEvent | AssistantMessageEvent | { type: string };
 
 // Rendered segment output
 export interface RenderedSegment {

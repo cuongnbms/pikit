@@ -2,7 +2,7 @@ import { Markdown } from "@earendil-works/pi-tui";
 import type { Component, MarkdownTheme } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth } from "../utils.js";
+import { getVisibleWidth, wrapAnsiToWidth } from "../utils.js";
 import { formatExpandedLines, indentLine } from "./tool-shared.js";
 import type { TrimStrategy } from "../types.js";
 
@@ -34,6 +34,12 @@ export function createMarkdownResult(
   function render(width: number): string[] {
     if (cachedLines && cachedWidth === width) return cachedLines;
 
+    if (width <= 0) {
+      cachedWidth = width;
+      cachedLines = [""];
+      return cachedLines;
+    }
+
     // Render markdown at reduced width to account for indent added by formatExpandedLines
     const contentWidth = Math.max(1, width - INDENT_WIDTH);
     const mdLines = md.render(contentWidth);
@@ -48,7 +54,7 @@ export function createMarkdownResult(
     }
 
     const fullText = label + formatted;
-    const lines = fullText.split("\n");
+    const lines = fullText.split("\n").flatMap((line) => wrapAnsiToWidth(line, width));
 
     cachedWidth = width;
     cachedLines = lines;

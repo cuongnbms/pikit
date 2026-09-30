@@ -21,6 +21,8 @@ class ChatInput extends CustomEditor {
 	private companionColor: (s: string) => string;
 	private animator = new CompanionAnimator();
 	private companionTimer: ReturnType<typeof setInterval> | null = null;
+	private companionVisible = false;
+	private disposed = false;
 
 	constructor(
 		tui: TUI,
@@ -31,6 +33,7 @@ class ChatInput extends CustomEditor {
 		bashColorFn: (s: string) => string,
 		bashAccentFn: (s: string) => string,
 		companionColor: (s: string) => string,
+		isCurrentEditor: () => boolean,
 	) {
 		super(tui, theme, keybindings, { paddingX: 0 });
 		this.border = colorFn;
@@ -39,11 +42,32 @@ class ChatInput extends CustomEditor {
 		this.bashAccent = bashAccentFn;
 		this.companionColor = companionColor;
 
-		// Animate companion even when idle — tick drives state machine
-		this.companionTimer = setInterval(() => {
-			this.animator.tick(Date.now());
-			this.tui.requestRender();
-		}, 100);
+		if (CONFIG.COMPANION_ENABLED) {
+			this.companionTimer = setInterval(() => {
+				if (this.disposed) return;
+				// Pi does not dispose editors replaced by another extension/default.
+				if (!isCurrentEditor()) {
+					this.dispose();
+					return;
+				}
+				const before = this.animator.getState();
+				this.animator.tick(Date.now());
+				const after = this.animator.getState();
+				const changed = before.lines.join("\n") !== after.lines.join("\n") ||
+					(after.lines.length > 0 && before.extraPad !== after.extraPad);
+				if (this.companionVisible && changed) this.tui.requestRender();
+			}, 100);
+		}
+	}
+
+	/** Release resources when this editor is replaced or its session shuts down. */
+	dispose(): void {
+		this.disposed = true;
+		this.companionVisible = false;
+		if (this.companionTimer !== null) {
+			clearInterval(this.companionTimer);
+			this.companionTimer = null;
+		}
 	}
 
 	private isBashMode(): boolean {
@@ -52,6 +76,7 @@ class ChatInput extends CustomEditor {
 	}
 
 	render(width: number): string[] {
+		this.companionVisible = !this.disposed && CONFIG.COMPANION_ENABLED && width >= MIN_WIDTH_FOR_COMPANION;
 		const padMultiplier = CONFIG.BOXED_VIEW ? 3 : 1;
 		if (width < 5 + CONFIG.BOX_PAD_X * padMultiplier) return super.render(width);
 
@@ -270,14 +295,25 @@ class ChatInput extends CustomEditor {
 
 // ─── Extension entry ──────────────────────────────────────────────────────
 export default function (pi: ExtensionAPI) {
+	let editor: ChatInput | undefined;
+	const disposeEditor = () => {
+		editor?.dispose();
+		editor = undefined;
+	};
+	pi.on("session_shutdown", disposeEditor);
 	pi.on("session_start", async (_event, ctx) => {
-		ctx.ui.setEditorComponent((tui: TUI, theme: EditorTheme, kb: KeybindingsManager) => {
+		disposeEditor();
+		const factory = (tui: TUI, theme: EditorTheme, kb: KeybindingsManager) => {
+			disposeEditor();
 			const colorFn = (s: string) => applyColor(ctx.ui.theme, CONFIG.BORDER_COLOR, s);
 			const accentFn = (s: string) => applyColor(ctx.ui.theme, CONFIG.PREFIX_COLOR, s);
 			const bashColorFn = (s: string) => applyColor(ctx.ui.theme, "bashMode", s);
 			const bashAccentFn = (s: string) => applyColor(ctx.ui.theme, "bashMode", s);
 			const companionColorFn = (s: string) => applyColor(ctx.ui.theme, CONFIG.COMPANION_COLOR, s);
-			return new ChatInput(tui, theme, kb, colorFn, accentFn, bashColorFn, bashAccentFn, companionColorFn);
-		});
+			editor = new ChatInput(tui, theme, kb, colorFn, accentFn, bashColorFn, bashAccentFn, companionColorFn,
+				() => typeof ctx.ui.getEditorComponent !== "function" || ctx.ui.getEditorComponent() === factory);
+			return editor;
+		};
+		ctx.ui.setEditorComponent(factory);
 	});
 }

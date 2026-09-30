@@ -36,7 +36,7 @@ Kind is never auto-detected from content — markdown legitimately opens with in
 
 ## Storage
 
-Project-local storage:
+Project-local storage, using the current session's `ctx.cwd` (not the process working directory). Relative input `path` values resolve from that session directory; absolute input paths are used unchanged:
 
 ```
 <project>/.pi/artifacts/<slug>.html
@@ -49,7 +49,7 @@ Project-local storage:
 
 ## Server (lazy, localhost-only)
 
-- Started on first `open` (not at extension load), bound strictly to `127.0.0.1`, random free port remembered for the process lifetime. Per-project (per-process), matching the cwd-relative storage model.
+- Started on first `open` (not at extension load), bound strictly to `127.0.0.1`, with one random free port per session project root. Concurrent starts for the same root share one startup; different roots have isolated file serving, indexes, URLs, and SSE clients even for identical slugs. Session shutdown closes all servers, including in-flight starts; subsequent starts can retry.
 - **SSE live reload**: the server and the `artifact` tool run in the same process, so `update` pushes an SSE event **directly** to connected clients (no `fs.watch`). The shell includes a snippet that subscribes to `/events` and reloads on an event matching its own slug.
 - **Index page** at `/`: artifact list, newest first, kind badge + timestamp. Titles recovered by parsing `<title>` from each file (no sidecar manifest). Reach it with the `/artifacts` command (below) or by opening the localhost URL printed by any tool call.
 

@@ -1,9 +1,18 @@
-import { Markdown } from "@earendil-works/pi-tui";
+import { Markdown, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth, hasVisibleContent, currentTheme, applyColor } from "../utils.js";
+import { hasVisibleContent, currentTheme, applyColor } from "../utils.js";
 
-const USER_PREFIX_WIDTH = getVisibleWidth(CONFIG.userMessage.prefix) + 2;
-const PADDING_PREFIX = " ".repeat(USER_PREFIX_WIDTH);
+function userPrefix(): string {
+  const prefix = currentTheme
+    ? applyColor(currentTheme, CONFIG.userMessage.color, CONFIG.userMessage.prefix)
+    : CONFIG.userMessage.prefix;
+  return ` ${prefix} `;
+}
+
+function fitToWidth(line: string, width: number): string {
+  if (width <= 0) return "";
+  return visibleWidth(line) <= width ? line : truncateToWidth(line, width, "");
+}
 
 export interface UserMessage {
   invalidate(): void;
@@ -11,12 +20,14 @@ export interface UserMessage {
 }
 
 export function createUserMessage(text: string, markdownTheme: any): UserMessage {
-  const md = new Markdown(text, 0, 0, markdownTheme, {
-    color: (t: string) => {
-      if (!currentTheme) return t;
-      return applyColor(currentTheme, CONFIG.userMessage.bodyColor, t);
-    },
-  });
+  const md = markdownTheme instanceof Markdown
+    ? markdownTheme
+    : new Markdown(text, 0, 0, markdownTheme, {
+      color: (t: string) => {
+        if (!currentTheme) return t;
+        return applyColor(currentTheme, CONFIG.userMessage.bodyColor, t);
+      },
+    });
   let cachedWidth: number | undefined;
   let cachedLines: string[] | undefined;
 
@@ -29,27 +40,31 @@ export function createUserMessage(text: string, markdownTheme: any): UserMessage
   function render(width: number): string[] {
     if (cachedLines && cachedWidth === width) return cachedLines;
 
-    if (width <= USER_PREFIX_WIDTH) {
+    if (width <= 0) {
       cachedWidth = width;
-      const prefix = currentTheme
-        ? applyColor(currentTheme, CONFIG.userMessage.color, CONFIG.userMessage.prefix)
-        : CONFIG.userMessage.prefix;
-      cachedLines = [` ${prefix} `];
+      cachedLines = [];
       return cachedLines;
     }
 
-    const mdLines = md.render(width - USER_PREFIX_WIDTH);
+    const prefixText = userPrefix();
+    const prefixWidth = visibleWidth(prefixText);
+
+    if (width <= prefixWidth) {
+      cachedWidth = width;
+      cachedLines = [fitToWidth(prefixText.trim(), width)];
+      return cachedLines;
+    }
+
+    const mdLines = md.render(width - prefixWidth);
+    const paddingPrefix = " ".repeat(prefixWidth);
     let prefixPlaced = false;
 
     const rendered = mdLines.map((line: string) => {
       if (!prefixPlaced && hasVisibleContent(line)) {
         prefixPlaced = true;
-        const prefix = currentTheme
-          ? applyColor(currentTheme, CONFIG.userMessage.color, CONFIG.userMessage.prefix)
-          : CONFIG.userMessage.prefix;
-        return ` ${prefix} ${line}`;
+        return fitToWidth(`${prefixText}${line}`, width);
       }
-      return `${PADDING_PREFIX}${line}`;
+      return fitToWidth(`${paddingPrefix}${line}`, width);
     });
 
     cachedWidth = width;

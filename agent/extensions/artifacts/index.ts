@@ -3,7 +3,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { resolve } from "node:path";
 
 import { artifactUrl, isRunning, notifyReload, runningPort, stopServer } from "./server.js";
 import { slugify, isSafeSlug, writeArtifact, artifactExists, listArtifacts, openInBrowser, artifactPath } from "./utils.js";
@@ -27,10 +27,10 @@ function errResult(message: string, details: Partial<ArtifactDetails> = {}) {
 }
 
 /** Resolve content from inline `content` or `path` (file read, with a size cap). */
-function resolveContent(params: { content?: string; path?: string }): { content: string } | { error: string } {
+function resolveContent(params: { content?: string; path?: string }, cwd = process.cwd()): { content: string } | { error: string } {
   if (params.content != null) return { content: params.content };
   if (params.path) {
-    const abs = join(process.cwd(), params.path);
+    const abs = resolve(cwd, params.path);
     try {
       const size = statSync(abs).size;
       const MAX = 2 * 1024 * 1024; // 2 MB — a stray path at a big log becomes a sad browser tab
@@ -46,15 +46,13 @@ function resolveContent(params: { content?: string; path?: string }): { content:
 }
 
 export default function artifacts(pi: ExtensionAPI) {
-  pi.on("session_shutdown", () => {
-    stopServer();
-  });
+  pi.on("session_shutdown", () => stopServer());
 
   // ─── /artifacts command — open the index page (starts the server lazily) ──
   pi.registerCommand("artifacts", {
     description: "Open the artifacts index page in the browser (starts the localhost server if not running)",
     handler: async (_args, ctx) => {
-      const url = await artifactUrl(); // no slug → index; ensureServer starts lazily
+      const url = await artifactUrl(undefined, ctx.cwd); // no slug → session index
       openInBrowser(url);
       if (ctx.hasUI) ctx.ui.notify(`Artifacts: ${url}`, "info");
     },
@@ -77,13 +75,14 @@ export default function artifacts(pi: ExtensionAPI) {
       path: Type.Optional(Type.String({ description: "Read content from this file path (relative to cwd) instead of `content`. kind still required. File is rendered into .pi/artifacts/, not served in place." })),
       open: Type.Optional(Type.Boolean({ description: "Auto-open in browser after write. Default: true on create, false on update (use action: open to view an update)." })),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const action = params.action;
+      const cwd = ctx.cwd;
 
       // ── list ──────────────────────────────────────────────────────────────
       if (action === "list") {
-        const entries = listArtifacts();
-        const port = runningPort();
+        const entries = listArtifacts(cwd);
+        const port = runningPort(cwd);
         const lines = entries.map((e) => {
           const when = e.mtime ? new Date(e.mtime).toISOString().replace("T", " ").slice(0, 19) : "";
           const url = port ? `http://127.0.0.1:${port}/${e.slug}.html` : "";
@@ -108,14 +107,14 @@ export default function artifacts(pi: ExtensionAPI) {
         return errResult(`derived slug "${slug}" is invalid.`, { slug, title });
       }
       const kind = params.kind;
-      const absPath = artifactPath(slug);
+      const absPath = artifactPath(slug, cwd);
 
       // ── open ───────────────────────────────────────────────────────────────
       if (action === "open") {
-        if (!artifactExists(slug)) {
+        if (!artifactExists(slug, cwd)) {
           return errResult(`no artifact with slug "${slug}" — create it first.`, { slug, title });
         }
-        const url = await artifactUrl(slug);
+        const url = await artifactUrl(slug, cwd);
         openInBrowser(url);
         const details: ArtifactDetails = { action, slug, title, kind: kind ?? "markdown", url, absPath };
         return {
@@ -128,28 +127,28 @@ export default function artifacts(pi: ExtensionAPI) {
       if (!kind) {
         return errResult("`kind` (markdown or html) is required for create/update.", { slug, title });
       }
-      const resolved = resolveContent(params);
+      const resolved = resolveContent(params, cwd);
       if ("error" in resolved) {
         return errResult(resolved.error, { slug, title, kind });
       }
       const content = resolved.content;
 
       const html = kind === "html"
-        ? renderHtmlDocument(title, slug, content)
-        : renderMarkdownDocument(title, slug, content);
+        ? renderHtmlDocument(title, slug, content, cwd)
+        : renderMarkdownDocument(title, slug, content, cwd);
 
-      writeArtifact(slug, html);
+      writeArtifact(slug, html, cwd);
 
-      // Live-reload already-open tabs (no-op if server not running)
-      notifyReload(slug);
+      // Live-reload this project's already-open tabs (no-op if not running)
+      notifyReload(slug, cwd);
 
       const shouldOpen = params.open ?? (action === "create");
       let url: string | undefined;
       if (shouldOpen) {
-        url = await artifactUrl(slug);
+        url = await artifactUrl(slug, cwd);
         openInBrowser(url);
-      } else if (isRunning()) {
-        url = await artifactUrl(slug);
+      } else if (isRunning(cwd)) {
+        url = await artifactUrl(slug, cwd);
       }
 
       const details: ArtifactDetails = { action, slug, title, kind, url, absPath };

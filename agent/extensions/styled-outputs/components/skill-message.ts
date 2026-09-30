@@ -1,12 +1,11 @@
 import { Markdown } from "@earendil-works/pi-tui";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth, currentTheme, applyColor, getExpandToggleKey } from "../utils.js";
+import { getVisibleWidth, currentTheme, applyColor, getExpandToggleKey, fitLineToWidth, wrapAnsiToWidth } from "../utils.js";
 import { branchLine, indentLine } from "./tool-shared.js";
 
-const SKILL_PREFIX_WIDTH = getVisibleWidth(CONFIG.skills.prefix) + 2;
+const BRANCH_INDENT_WIDTH = getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
 const HPAD = () => CONFIG.tools.general.horizontalPadding;
 const VPAD = () => CONFIG.tools.general.verticalPadding;
-const HPAD_STR = () => " ".repeat(HPAD());
 
 export interface SkillInvocationMessage {
   setExpanded(value: boolean): void;
@@ -39,22 +38,34 @@ export function createSkillInvocationMessage(
     md.invalidate();
   }
 
-  function addPadding(lines: string[]): string[] {
-    const hpad = HPAD();
+  function innerWidth(width: number): number {
+    if (width <= 0) return 0;
+    const hpad = Math.min(HPAD(), Math.max(0, width - 1));
+    return Math.max(0, width - hpad);
+  }
+
+  function addPadding(lines: string[], width: number): string[] {
+    if (width <= 0) return lines.map(() => "");
+    const hpad = Math.min(HPAD(), Math.max(0, width - 1));
     const vpad = VPAD();
-    if (hpad === 0 && vpad === 0) return lines;
-    const pad = HPAD_STR();
-    const padded = hpad > 0 ? lines.map(l => pad + l) : lines;
-    const top = vpad > 0 ? Array(vpad).fill("") : [];
-    const bot = vpad > 0 ? Array(vpad).fill("") : [];
-    return [...top, ...padded, ...bot];
+    const pad = " ".repeat(hpad);
+    const contentWidth = Math.max(0, width - hpad);
+    const out: string[] = [];
+    for (let i = 0; i < vpad; i++) out.push("");
+    for (const line of lines) {
+      for (const wrapped of wrapAnsiToWidth(line, contentWidth)) {
+        out.push(fitLineToWidth(pad + wrapped, width));
+      }
+    }
+    for (let i = 0; i < vpad; i++) out.push("");
+    return out;
   }
 
   function render(width: number): string[] {
     if (cachedLines && cachedWidth === width && cachedExpanded === expanded) return cachedLines;
 
     const t = currentTheme!;
-    const contentWidth = width - 2 * HPAD();
+    const contentWidth = innerWidth(width);
 
     // Line 1: " ● Skill  skill-name"
     const dot = applyColor(t, CONFIG.skills.prefixColor, CONFIG.skills.prefix);
@@ -69,15 +80,15 @@ export function createSkillInvocationMessage(
       cachedWidth = width;
       cachedExpanded = expanded;
       const hint = applyColor(t, CONFIG.skills.expandHintColor, ` • ${getExpandToggleKey()} to expand`);
-      cachedLines = addPadding(["", header, branchLine(loaded, t) + hint]);
+      cachedLines = addPadding(["", header, branchLine(loaded, t) + hint], width);
       return cachedLines;
     }
 
     // Expanded: header + branch + indented markdown content
     const lines: string[] = ["", header, branchLine(loaded, t)];
 
-    if (contentWidth > SKILL_PREFIX_WIDTH) {
-      const mdLines = md.render(contentWidth - SKILL_PREFIX_WIDTH);
+    if (contentWidth > BRANCH_INDENT_WIDTH) {
+      const mdLines = md.render(Math.max(1, contentWidth - BRANCH_INDENT_WIDTH));
       for (const line of mdLines) {
         lines.push(indentLine(applyColor(t, CONFIG.skills.outputColor, line)));
       }
@@ -85,7 +96,7 @@ export function createSkillInvocationMessage(
 
     cachedWidth = width;
     cachedExpanded = expanded;
-    cachedLines = addPadding(lines);
+    cachedLines = addPadding(lines, width);
     return cachedLines;
   }
 

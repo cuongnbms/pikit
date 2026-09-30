@@ -5,9 +5,9 @@ import { CONFIG } from "../config.js";
 import { applyColor, shortenPath } from "../utils.js";
 import {
   makeText, toolHeader, branchLine, expandHint,
-  outputLines, getFirstTextContent, errorLabel, renderPartial, doneLabel,
+  outputLines, getFirstTextContent, getImageContentCount, errorLabel, renderPartial, doneLabel,
   ensureSpinner, clearSpinner, spinnerDot, groupTitleColor,
-  formatExpandedLines,
+  formatExpandedLines, renderSuppressedPartial,
 } from "./tool-shared.js";
 import { createMarkdownResult } from "./markdown-result.js";
 
@@ -27,10 +27,20 @@ export function renderReadCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderReadResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const text = getFirstTextContent(result);
+  const images = getImageContentCount(result);
+  if (!text.trim() && images > 0) {
+    const count = { label: images === 1 ? "image" : "images", value: images };
+    const status = ctx.isError
+      ? errorLabel(theme) + applyColor(theme, CONFIG.tools.general.countColor, ` • ${images} ${count.label}`)
+      : doneLabel(theme, count);
+    return makeText(ctx.lastComponent, status);
+  }
 
   if (ctx.isError) {
-    const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
+    const lines = outputLines(text);
     if (!options.expanded) {
       return makeText(ctx.lastComponent, errorLabel(theme) + expandHint(theme));
     }
@@ -38,7 +48,8 @@ export function renderReadResult(result: any, options: { expanded: boolean; isPa
     return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
   }
 
-  const nonEmptyLines = outputLines(text).filter((l: string) => l.trim().length > 0);
+  const lines = outputLines(text);
+  const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
   const count = nonEmptyLines.length > 0 ? { label: "lines", value: nonEmptyLines.length } : undefined;
 
   if (!options.expanded) {
@@ -51,7 +62,7 @@ export function renderReadResult(result: any, options: { expanded: boolean; isPa
     return createMarkdownResult(doneLabel(theme, count), text, getMarkdownTheme(), "head-tail", theme, true);
   }
 
-  const styled = nonEmptyLines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
+  const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
   return makeText(ctx.lastComponent, doneLabel(theme, count) + formatExpandedLines(styled, "head-tail", theme));
 }
 
@@ -71,8 +82,11 @@ export function renderGrepCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderGrepResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const text = getFirstTextContent(result);
-  const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
+  const lines = outputLines(text);
+  const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
 
   if (ctx.isError) {
     if (!options.expanded) {
@@ -82,7 +96,7 @@ export function renderGrepResult(result: any, options: { expanded: boolean; isPa
     return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
   }
 
-  const lineCount = text === "No matches found" ? 0 : lines.length;
+  const lineCount = text === "No matches found" ? 0 : nonEmptyLines.length;
   const count = lineCount > 0 ? { label: "matches", value: lineCount } : undefined;
 
   if (!options.expanded) {
@@ -108,8 +122,11 @@ export function renderFindCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderFindResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const text = getFirstTextContent(result);
-  const items = outputLines(text).filter((l: string) => l.trim().length > 0);
+  const items = outputLines(text);
+  const nonEmptyItems = items.filter((l: string) => l.trim().length > 0);
 
   if (ctx.isError) {
     if (!options.expanded) {
@@ -119,7 +136,7 @@ export function renderFindResult(result: any, options: { expanded: boolean; isPa
     return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
   }
 
-  const itemCount = text === "No files found matching pattern" ? 0 : items.length;
+  const itemCount = text === "No files found matching pattern" ? 0 : nonEmptyItems.length;
   const count = itemCount > 0 ? { label: "files", value: itemCount } : undefined;
 
   if (!options.expanded) {
@@ -151,8 +168,11 @@ export function renderBashCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderBashResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const output = getFirstTextContent(result);
-  const nonEmptyLines = outputLines(output).filter((l: string) => l.trim().length > 0);
+  const lines = outputLines(output);
+  const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
 
   if (ctx.isError) {
     const exitMatch = output.match(/Command exited with code (\d+)/);
@@ -165,7 +185,7 @@ export function renderBashResult(result: any, options: { expanded: boolean; isPa
     if (!options.expanded) {
       return makeText(ctx.lastComponent, display + expandHint(theme));
     }
-    const styled = nonEmptyLines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
+    const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
     return makeText(ctx.lastComponent, display + formatExpandedLines(styled, "tail", theme));
   }
 
@@ -175,7 +195,7 @@ export function renderBashResult(result: any, options: { expanded: boolean; isPa
     return makeText(ctx.lastComponent, doneLabel(theme, count) + (nonEmptyLines.length > 0 ? expandHint(theme) : ""));
   }
 
-  const styled = nonEmptyLines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
+  const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
   return makeText(ctx.lastComponent, doneLabel(theme, count) + formatExpandedLines(styled, "tail", theme));
 }
 
@@ -195,9 +215,11 @@ export function renderEditCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderEditResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   if (ctx.isError) {
     const text = getFirstTextContent(result);
-    const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
+    const lines = outputLines(text);
     if (!options.expanded) {
       return makeText(ctx.lastComponent, errorLabel(theme) + expandHint(theme));
     }
@@ -233,9 +255,11 @@ export function renderWriteCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderWriteResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   if (ctx.isError) {
     const text = getFirstTextContent(result);
-    const lines = outputLines(text).filter((l: string) => l.trim().length > 0);
+    const lines = outputLines(text);
     if (!options.expanded) {
       return makeText(ctx.lastComponent, errorLabel(theme) + expandHint(theme));
     }
@@ -262,8 +286,11 @@ export function renderLsCall(args: any, theme: Theme, ctx: any): Component {
 }
 
 export function renderLsResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: Theme, ctx: any): Component {
+  if (options.isPartial || ctx.isPartial) return renderSuppressedPartial(ctx);
+
   const text = getFirstTextContent(result);
-  const items = outputLines(text).filter((l: string) => l.trim().length > 0);
+  const items = outputLines(text);
+  const nonEmptyItems = items.filter((l: string) => l.trim().length > 0);
 
   if (ctx.isError) {
     if (!options.expanded) {
@@ -273,7 +300,7 @@ export function renderLsResult(result: any, options: { expanded: boolean; isPart
     return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
   }
 
-  const itemCount = text === "(empty directory)" ? 0 : items.length;
+  const itemCount = text === "(empty directory)" ? 0 : nonEmptyItems.length;
   const count = itemCount > 0 ? { label: "entries", value: itemCount } : undefined;
 
   if (!options.expanded) {

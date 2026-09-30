@@ -23,6 +23,7 @@ const DEFAULT_SEGMENT_OPTIONS: StatusLineSegmentOptions = {
 // Cache for user config
 let userConfigCache: FooterUserConfig | null = null;
 let userConfigCacheTime = 0;
+let userConfigCachePath: string | undefined;
 const CACHE_TTL = 5000; // 5 seconds
 
 function getConfigPath(): string {
@@ -32,11 +33,13 @@ function getConfigPath(): string {
 
 export function loadUserConfig(): FooterUserConfig | null {
   const now = Date.now();
-  if (userConfigCache && now - userConfigCacheTime < CACHE_TTL) {
+  const configPath = getConfigPath();
+  // Cache misses and parse errors too, but never reuse another HOME's config.
+  if (userConfigCachePath === configPath && now - userConfigCacheTime < CACHE_TTL) {
     return userConfigCache;
   }
 
-  const configPath = getConfigPath();
+  userConfigCachePath = configPath;
   try {
     if (existsSync(configPath)) {
       const content = readFileSync(configPath, "utf-8");
@@ -57,6 +60,7 @@ export function loadUserConfig(): FooterUserConfig | null {
 export function clearUserConfigCache(): void {
   userConfigCache = null;
   userConfigCacheTime = 0;
+  userConfigCachePath = undefined;
 }
 
 export function getEffectiveConfig(): {
