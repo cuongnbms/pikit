@@ -46,7 +46,6 @@
     "image": "https://github.com/user-attachments/assets/3c0eb2a6-fce9-4c39-8943-d348ce1bc284"
   },
   "dependencies": {
-    "typebox": "^1.1.38",
     "diff2html": "^3.4.52",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.5"
@@ -54,13 +53,15 @@
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
-    "@earendil-works/pi-ai": "*"
+    "@earendil-works/pi-ai": "*",
+    "typebox": "*"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "^0.80.3",
     "@earendil-works/pi-coding-agent": "^0.80.3",
     "@earendil-works/pi-tui": "^0.80.3",
     "@types/node": "^25.6.2",
+    "typebox": "^1.1.38",
     "typescript": "^6.0.3"
   }
 }
