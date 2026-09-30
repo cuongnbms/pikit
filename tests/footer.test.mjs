@@ -80,9 +80,37 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")], co
     emit: async (type, event, eventCtx = ctx) => {
       for (const handler of loaded.extensions[0].handlers.get(type) ?? []) await handler(event, eventCtx);
     },
-    render: (width = 240) => component.render(width)
-      .map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trim()) };
+    render: (width = 240, trim = true) => component.render(width)
+      .map((line) => line.replace(/\x1b\[[0-9;]*m/g, ""))
+      .map((line) => trim ? line.trim() : line) };
 }
+
+for (const layout of ["default", "example"]) {
+  test(`${layout} layout places context at bottom-left and token/cost stats at bottom-right`, async (t) => {
+    const config = layout === "default" ? null : JSON.parse(await readFile(
+      new URL("../agent/extensions/footer/footer.example.json", import.meta.url), "utf8"));
+    const f = await fixture(t, { config });
+    for (const width of [100, 120, 240]) {
+      const lines = f.render(width, false);
+      assert.equal(lines.length, 4);
+      assert.match(lines[1], /Virtual \(fixture\)/);
+      assert.doesNotMatch(lines[1], /40\.0%|2\.0k/);
+      assert.match(lines[3], /^ ▋{18} 40\.0% \/ 2\.0k +T:/);
+      assert.match(lines[3], /\$0\.10 $/);
+      assert.equal(lines[3].length, width, "bottom row keeps both sides aligned");
+    }
+    for (const width of [20, 44, 80]) {
+      assert.ok(f.render(width).every((line) => [...line].length <= width));
+    }
+  });
+}
+
+test("explicit context placement overrides the default layout", async (t) => {
+  const f = await fixture(t, { config: { row1RightSegments: ["context_pct"], row2LeftSegments: [] } });
+  assert.match(f.render()[1], /40\.0% \/ 2\.0k$/);
+  assert.doesNotMatch(f.render()[3], /40\.0%|2\.0k/);
+  assert.match(f.render()[3], /T:.*\$0\.10$/);
+});
 
 // Omitting any host accounting category (or walking nested usage a second time) breaks this total.
 test("footer totals all entries including spent errors, abandoned branches and nested parent usage", async (t) => {

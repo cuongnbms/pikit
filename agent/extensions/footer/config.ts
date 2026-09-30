@@ -6,8 +6,8 @@ import type { IconSet } from "./icons.js";
 
 // Default segment configuration — two rows
 const DEFAULT_ROW1_LEFT: StatusLineSegmentId[] = ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"];
-const DEFAULT_ROW1_RIGHT: StatusLineSegmentId[] = ["context_pct"];
-const DEFAULT_ROW2_LEFT: StatusLineSegmentId[] = [];
+const DEFAULT_ROW1_RIGHT: StatusLineSegmentId[] = [];
+const DEFAULT_ROW2_LEFT: StatusLineSegmentId[] = ["context_pct"];
 const DEFAULT_ROW2_RIGHT: StatusLineSegmentId[] = ["token_total", "separator", "cost"];
 
 const DEFAULT_SEGMENT_OPTIONS: StatusLineSegmentOptions = {

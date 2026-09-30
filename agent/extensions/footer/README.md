@@ -9,9 +9,9 @@ A customizable two-row footer for the pi coding agent. Provides a rich status ba
 
 ```
 Row 1 left:  π | <model name> (<provider>) ⚡ <level> | <folder> <path> <branch> <dirty>
-Row 1 right: <context bar> <pct%> / <max tokens>
+Row 1 right: (empty by default)
 
-Row 2 left:  (empty by default)
+Row 2 left:  <context bar> <pct%> / <max tokens>
 Row 2 right: T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out> | $<cost>
 ```
 
@@ -34,8 +34,8 @@ left and right segments are configured independently:
 ```json
 {
   "row1LeftSegments":  ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"],
-  "row1RightSegments": ["context_pct"],
-  "row2LeftSegments":  [],
+  "row1RightSegments": [],
+  "row2LeftSegments":  ["context_pct"],
   "row2RightSegments": ["token_total", "separator", "cost"],
 
   "colors": {
