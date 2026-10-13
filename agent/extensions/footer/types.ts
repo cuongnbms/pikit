@@ -41,6 +41,7 @@ export type StatusLineSegmentId =
   | "token_in"
   | "token_out"
   | "token_total"
+  | "token_compact"
   | "cost"
   | "context_pct"
   | "context_total"
@@ -52,6 +53,10 @@ export type StatusLineSegmentId =
 
 // Per-segment options
 export interface StatusLineSegmentOptions {
+  model?: {
+    label?: "name" | "id";
+    showProvider?: boolean;
+  };
   path?: {
     mode?: "basename" | "abbreviated" | "full";
     maxLength?: number;
@@ -71,6 +76,10 @@ export interface StatusLineSegmentOptions {
     gradientMid?: ColorValue;
     gradientEnd?: ColorValue;
     gradientMidPoint?: number;
+    colorMode?: "gradient" | "threshold";
+    warnAt?: number;
+    errorAt?: number;
+    compactLabel?: boolean;
   };
 }
 

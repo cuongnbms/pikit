@@ -4,7 +4,7 @@ import { modelSegment } from "./model.js";
 import { pathSegment } from "./path.js";
 import { gitSegment } from "./git.js";
 import { thinkingSegment } from "./thinking.js";
-import { tokenInSegment, tokenOutSegment, tokenTotalSegment, cacheReadSegment, cacheWriteSegment } from "./tokens.js";
+import { tokenInSegment, tokenOutSegment, tokenTotalSegment, tokenCompactSegment, cacheReadSegment, cacheWriteSegment } from "./tokens.js";
 import { costSegment } from "./cost.js";
 import { contextPctSegment, contextTotalSegment } from "./context.js";
 import { separatorSegment } from "./separator.js";
@@ -18,6 +18,7 @@ const SEGMENTS = {
   token_in: tokenInSegment,
   token_out: tokenOutSegment,
   token_total: tokenTotalSegment,
+  token_compact: tokenCompactSegment,
   cost: costSegment,
   context_pct: contextPctSegment,
   context_total: contextTotalSegment,

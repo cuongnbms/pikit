@@ -29,6 +29,22 @@ export const tokenTotalSegment = {
   },
 };
 
+export const tokenCompactSegment = {
+  id: "token_compact" as const,
+  render(ctx: SegmentContext): RenderedSegment {
+    const { input, output, cacheRead, cacheWrite } = ctx.usageStats;
+    const cacheableInput = input + cacheRead + cacheWrite;
+    const cacheHitPercent = cacheableInput > 0 ? (cacheRead / cacheableInput) * 100 : 0;
+
+    const content =
+      lbl(ctx, "↑") + val(ctx, formatTokens(input)) +
+      " " + lbl(ctx, "↓") + val(ctx, formatTokens(output)) +
+      " " + lbl(ctx, "cache") + " " + val(ctx, `${Math.round(cacheHitPercent)}%`);
+
+    return { content, visible: true };
+  },
+};
+
 export const tokenInSegment = {
   id: "token_in" as const,
   render(ctx: SegmentContext): RenderedSegment {

@@ -27,7 +27,8 @@ function assistant(id, stopReason = "stop", input = 10) {
       stopReason, usage: usage(input) } };
 }
 
-async function fixture(t, { config = statsConfig, entries = [assistant("a")], countAPI = true } = {}) {
+async function fixture(t, { config = statsConfig, entries = [assistant("a")], countAPI = true,
+  theme = { fg: (_name, text) => text } } = {}) {
   const root = await mkdtemp(join(tmpdir(), "pikit-footer-"));
   const oldHome = process.env.HOME;
   process.env.HOME = root;
@@ -60,7 +61,6 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")], co
   const loaded = await loadExtensions([extensionPath], root);
   assert.deepEqual(loaded.errors, []);
   loaded.runtime.getThinkingLevel = () => state.thinking;
-  const theme = { fg: (_name, text) => text };
   let component;
   const ctx = {
     cwd: root, hasUI: true, mode: "tui", sessionManager: manager,
@@ -279,7 +279,7 @@ test("virtual model shows current-branch physical provider/model and routed thin
   const f = await fixture(t, { config: modelConfig, entries: [routed("abandoned", "wrong", "abandoned", "max")] });
   selectVirtual(f);
   f.state.branch = selectedBranch(routed("active"));
-  assert.equal(f.render()[1], "virtual (router) → physical-model (physical-provider) • medium");
+  assert.equal(f.render()[0], "virtual (router) → physical-model (physical-provider) • medium");
   f.state.thinking = "low";
   f.render(); f.render();
   assert.equal(f.state.branchReads, 1, "route must reuse the session-stat cache");
@@ -290,28 +290,28 @@ test("virtual selection before a response and ordinary models keep concise selec
   const f = await fixture(t, { config: modelConfig });
   f.state.branch = [];
   selectVirtual(f);
-  assert.equal(f.render()[1], "virtual (router)");
+  assert.equal(f.render()[0], "virtual (router)");
   f.ctx.model = { ...f.ctx.model, api: "openai-completions", name: "Claude Sonnet", provider: "anthropic" };
   f.state.branch = [routed("old")];
-  assert.equal(f.render()[1], "Sonnet (anthropic)");
+  assert.equal(f.render()[0], "Sonnet (anthropic)");
 });
 
 test("virtual route follows branch, session and manager changes, including a branch without responses", async (t) => {
   const f = await fixture(t, { config: modelConfig });
   selectVirtual(f);
   f.state.branch = selectedBranch(routed("first"));
-  assert.match(f.render()[1], /physical-model/);
+  assert.match(f.render()[0], /physical-model/);
   f.state.leafId = "other-leaf";
   f.state.branch = selectedBranch(routed("other", "other-provider", "other-model", "off"));
-  assert.equal(f.render()[1], "virtual (router) → other-model (other-provider) • off");
+  assert.equal(f.render()[0], "virtual (router) → other-model (other-provider) • off");
   f.state.leafId = "empty-leaf";
   f.state.branch = [];
-  assert.equal(f.render()[1], "virtual (router)");
+  assert.equal(f.render()[0], "virtual (router)");
   f.state.sessionId = "other-session";
   f.state.branch = selectedBranch(routed("session", "session-provider", "session-model", "high"));
-  assert.match(f.render()[1], /session-model \(session-provider\) • high$/);
+  assert.match(f.render()[0], /session-model \(session-provider\) • high$/);
   f.ctx.sessionManager = { ...f.ctx.sessionManager, getBranch: () => [] };
-  assert.equal(f.render()[1], "virtual (router)");
+  assert.equal(f.render()[0], "virtual (router)");
 });
 
 test("changing virtual selection hides previous route until that selection has a response", async (t) => {
@@ -323,11 +323,11 @@ test("changing virtual selection hides previous route until that selection has a
   f.state.branch.push({ type: "model_change", provider: "router", modelId: "new-virtual" });
   f.state.leafId = "selection";
   await f.emit("model_select", { type: "model_select", model: f.ctx.model, source: "set" });
-  assert.equal(f.render()[1], "new-virtual (router)");
+  assert.equal(f.render()[0], "new-virtual (router)");
   f.state.branch.push(routed("new", "new-provider", "new-model", "low"));
   f.state.entries.push(f.state.branch.at(-1));
   f.state.leafId = "response";
-  assert.equal(f.render()[1], "new-virtual (router) → new-model (new-provider) • low");
+  assert.equal(f.render()[0], "new-virtual (router) → new-model (new-provider) • low");
 });
 
 test("tree navigation does not attribute a different virtual selection's response to the live selection", async (t) => {
@@ -338,18 +338,18 @@ test("tree navigation does not attribute a different virtual selection's respons
   manager.appendModelChange("router", "virtual-A");
   const responseA = manager.appendMessage(routed("a", "physical", "physical-A").message);
   selectVirtual(f, "virtual-A");
-  assert.equal(f.render()[1], "virtual-A (router) → physical-A (physical) • medium");
+  assert.equal(f.render()[0], "virtual-A (router) → physical-A (physical) • medium");
   manager.appendModelChange("router", "virtual-B");
   selectVirtual(f, "virtual-B");
-  assert.equal(f.render()[1], "virtual-B (router)");
+  assert.equal(f.render()[0], "virtual-B (router)");
   manager.branch(responseA);
   await f.emit("session_tree", { type: "session_tree", newLeafId: responseA });
-  assert.equal(f.render()[1], "virtual-B (router)", "tree navigation preserves B's live selection, not A's recorded one");
+  assert.equal(f.render()[0], "virtual-B (router)", "tree navigation preserves B's live selection, not A's recorded one");
   manager.appendModelChange("router", "virtual-B");
   manager.appendMessage(routed("b", "physical", "physical-B", "low").message);
-  assert.equal(f.render()[1], "virtual-B (router) → physical-B (physical) • low");
+  assert.equal(f.render()[0], "virtual-B (router) → physical-B (physical) • low");
   f.ctx.model = { ...f.ctx.model, provider: "another-router" };
-  assert.equal(f.render()[1], "virtual-B (another-router)", "a different provider with the same model id is a different selection");
+  assert.equal(f.render()[0], "virtual-B (another-router)", "a different provider with the same model id is a different selection");
 });
 
 test("session tree and selection events refresh the footer context rather than retaining an old selection", async (t) => {
@@ -359,10 +359,10 @@ test("session tree and selection events refresh the footer context rather than r
   f.render();
   const treeCtx = { ...f.ctx, model: { ...f.ctx.model, api: "openai-completions", id: "tree-model", name: "Tree Model" } };
   await f.emit("session_tree", { type: "session_tree", newLeafId: "tree-leaf", oldLeafId: "leaf-a" }, treeCtx);
-  assert.equal(f.render()[1], "Tree Model (router)");
+  assert.equal(f.render()[0], "Tree Model (router)");
   const selectCtx = { ...treeCtx, model: { ...treeCtx.model, name: "Selected Model", id: "selected" } };
   await f.emit("model_select", { type: "model_select", model: selectCtx.model, source: "cycle" }, selectCtx);
-  assert.equal(f.render()[1], "Selected Model (router)");
+  assert.equal(f.render()[0], "Selected Model (router)");
 });
 
 test("physical response without recorded thinking does not borrow selected thinking", async (t) => {
@@ -370,14 +370,14 @@ test("physical response without recorded thinking does not borrow selected think
   selectVirtual(f);
   f.state.branch = selectedBranch(routed("no-level"));
   delete f.state.branch[1].message.thinkingLevel;
-  assert.equal(f.render()[1], "virtual (router) → physical-model (physical-provider)");
+  assert.equal(f.render()[0], "virtual (router) → physical-model (physical-provider)");
 });
 
 test("physical history without a recorded virtual selection cannot prove a route", async (t) => {
   const f = await fixture(t, { config: modelConfig });
   selectVirtual(f);
   f.state.branch = [routed("old-physical")];
-  assert.equal(f.render()[1], "virtual (router)");
+  assert.equal(f.render()[0], "virtual (router)");
 });
 
 test("virtual footer remains width-bounded on narrow terminals", async (t) => {
@@ -386,7 +386,51 @@ test("virtual footer remains width-bounded on narrow terminals", async (t) => {
   f.state.branch = selectedBranch(routed("active"));
   for (const width of [20, 44, 80]) {
     const lines = f.render(width);
-    assert.equal(lines.length, 4);
+    assert.equal(lines.length, 1, "an empty row 2 collapses the footer to one line");
     assert.ok(lines.every((line) => [...line].length <= width));
   }
+});
+
+const compactConfig = {
+  row1LeftSegments: ["pi", "model", "thinking"],
+  row1RightSegments: ["context_pct", "separator", "token_compact", "separator", "cost"],
+  row2LeftSegments: [], row2RightSegments: [],
+  icons: { pi: "π", separator: "·" },
+  segmentOptions: {
+    model: { label: "id", showProvider: false },
+    contextBar: { barWidth: 8, filledChar: "▰", unfilledChar: "▱", compactLabel: true },
+  },
+};
+
+test("one-row layout renders only row 1, with compact model, context and token labels", async (t) => {
+  const f = await fixture(t, { config: compactConfig });
+  for (const width of [120, 240]) {
+    const lines = f.render(width, false);
+    assert.equal(lines.length, 1, "no blank line, divider or empty second row");
+    assert.equal(lines[0].length, width);
+    assert.match(lines[0], /^ π  virtual high +▰{3}▱{5} 40%\/2\.0k · ↑10 ↓2 cache 18% · \$0\.10 $/);
+  }
+  assert.ok(f.render(40).every((line) => [...line].length <= 40));
+});
+
+test("model label options apply to the selected model only", async (t) => {
+  const f = await fixture(t, { config: { ...compactConfig, segmentOptions: { model: { label: "id" } } } });
+  assert.match(f.render()[0], /^π  virtual \(fixture\) high/);
+});
+
+test("threshold context colours stay neutral below warnAt and escalate at warnAt and errorAt", async (t) => {
+  // Default contextLabel/contextWarn/contextError resolve to muted/warning/error.
+  const theme = { fg: (name, text) => `<${name}>${text}</>` };
+  const f = await fixture(t, { theme, config: {
+    row1LeftSegments: ["context_pct"], row1RightSegments: [], row2LeftSegments: [], row2RightSegments: [],
+    segmentOptions: { contextBar: { barWidth: 4, colorMode: "threshold", warnAt: 60, errorAt: 85,
+      unfilledColor: "dim", compactLabel: true } },
+  } });
+  assert.match(f.render()[0], /^<muted>▋▋<\/><dim>▋▋<\/> <muted>40%<\/><dim>\/2\.0k<\/>/);
+  f.state.context = { tokens: 1300, contextWindow: 2000, percent: 65 };
+  f.state.leafId = "leaf-b";
+  assert.match(f.render()[0], /^<warning>▋▋▋<\/><dim>▋<\/> <warning>65%<\/>/);
+  f.state.context = { tokens: 1800, contextWindow: 2000, percent: 90 };
+  f.state.leafId = "leaf-c";
+  assert.match(f.render()[0], /^<error>▋▋▋▋<\/> <error>90%<\/>/);
 });
