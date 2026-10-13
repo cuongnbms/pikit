@@ -24,7 +24,7 @@ export const DEFAULT_THEME_TOKENS: ThemeTokens = {
   verb: "accent",
   separator: "borderMuted",
   status: "muted",
-  separatorIcon: "└─",
+  separatorIcon: "·",
 };
 
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "configs", "spinners.json");

@@ -3,9 +3,18 @@
 Replaces the default **Thinking** verb with Claude-style random alternatives from a curated list, cycling periodically with a typewriter reveal.
 
 
+Default working indicator (single line, animated stars):
+
+```text
+✻ Precipitating… (38s · ↓ 1,234 tokens)
+```
+
+Token counts are estimates from streamed text, not billed usage. Indicator and message are restored on turn end, agent end and shutdown.
+
 ## Features
 
 - **Curated verb list** — Unique alternatives to the default thinking message
+- **Claude-style indicator** — Animated star glyphs with inline elapsed time and token estimates
 - **Typewriter animation** — Character-by-character reveal
 - **Auto-cycling** — Rotates through verbs while model works
 - **Live status** — Shows elapsed time and estimated token count
@@ -27,7 +36,7 @@ cp ~/.pi/agent/extensions/spinners/spinners.example.json \
     "verb": "accent",
     "separator": "borderMuted",
     "status": "muted",
-    "separatorIcon": "└─"
+    "separatorIcon": "·"
   }
 }
 ```
@@ -36,10 +45,10 @@ cp ~/.pi/agent/extensions/spinners/spinners.example.json \
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `themeTokens.verb` | `string` | `"accent"` | Theme token for the verb text (e.g., "Boondoggling...") |
-| `themeTokens.separator` | `string` | `"borderMuted"` | Theme token for the separator icon |
+| `themeTokens.verb` | `string` | `"accent"` | Theme token for the verb text (e.g., "Boondoggling…") |
+| `themeTokens.separator` | `string` | `"borderMuted"` | Theme token for the inline separator |
 | `themeTokens.status` | `string` | `"muted"` | Theme token for the status line (elapsed time, token count) |
-| `themeTokens.separatorIcon` | `string` | `"└─"` | The separator icon shown before the status |
+| `themeTokens.separatorIcon` | `string` | `"·"` | Inline separator between elapsed time and token count |
 
 ### Available Theme Tokens
 

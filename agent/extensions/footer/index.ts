@@ -42,28 +42,30 @@ function buildFooterContent(
 ): string {
   const maxContentWidth = Math.max(0, availableWidth - 2);
 
-  // Render left segments
-  const leftParts: string[] = [];
-  for (const segId of leftSegments) {
-    const { content, visible } = renderSegmentWithWidth(segId, ctx);
-    if (visible) {
-      leftParts.push(content);
+  // Separators connect visible content, never empty segments or row edges.
+  const renderParts = (segments: StatusLineSegmentId[]): string[] => {
+    const parts: string[] = [];
+    let pendingSeparator: string | undefined;
+    for (const segId of segments) {
+      const { content, visible } = renderSegmentWithWidth(segId, ctx);
+      if (!visible) continue;
+      if (segId === "separator") {
+        if (parts.length > 0 && pendingSeparator === undefined) pendingSeparator = content;
+        continue;
+      }
+      if (pendingSeparator !== undefined) {
+        parts.push(pendingSeparator);
+        pendingSeparator = undefined;
+      }
+      parts.push(content);
     }
-  }
+    return parts;
+  };
 
-  // Render right segments
-  const rightParts: string[] = [];
-  let rightWidth = 0;
-  for (const segId of rightSegments) {
-    const { content, width, visible } = renderSegmentWithWidth(segId, ctx);
-    if (visible) {
-      rightParts.push(content);
-      rightWidth += width + 1; // +1 for space between
-    }
-  }
-  if (rightParts.length > 0) {
-    rightWidth -= 1; // Remove trailing space
-  }
+  const leftParts = renderParts(leftSegments);
+  const rightParts = renderParts(rightSegments);
+  const rightWidth = rightParts.reduce((sum, part) => sum + visibleWidth(part), 0)
+    + Math.max(0, rightParts.length - 1);
 
   let leftStr = leftParts.join(" ");
   let rightStr = rightParts.join(" ");

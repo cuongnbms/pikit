@@ -1,6 +1,6 @@
 # footer
 
-A customizable two-row footer for the pi coding agent. Provides a rich status bar at the bottom of the terminal showing model info, git status, token usage, and more.
+A customizable one- or two-row footer for the pi coding agent. Provides a rich status bar at the bottom of the terminal showing model info, git status, token usage, and more.
 
 <img alt="preview" src="https://github.com/user-attachments/assets/b0e90d1b-2f93-4a94-a373-94d2f85d6bf8" />
 
@@ -8,11 +8,9 @@ A customizable two-row footer for the pi coding agent. Provides a rich status ba
 ## Layout
 
 ```
-Row 1 left:  π | <model name> (<provider>) ⚡ <level> | <folder> <path> <branch> <dirty>
-Row 1 right: (empty by default)
-
-Row 2 left:  <context bar> <pct%> / <max tokens>
-Row 2 right: T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out> | $<cost>
+Row 1 left:  📂 <path> · <branch> <dirty> · <model id> (<provider>) ⚡ <level>
+Row 1 right: <context bar> <pct%>/<max tokens> · ↑<in> ↓<out> cache <hit-rate>% · $<cost>
+Row 2:      empty by default
 ```
 
 When both row 2 lists are empty, the footer renders row 1 only, with no blank
@@ -20,8 +18,8 @@ line or divider above it (see [One-row layout](#one-row-layout)).
 
 ## Features
 
-- **Two-row layout**: Info grouped by purpose across two lines
-- **Context bar**: 20-character gradient block bar with configurable colours and % indicator
+- **Compact one-row default**: Project, git, model/provider, thinking and usage on one line; two-row layouts remain configurable
+- **Context bar**: 8-character threshold-coloured bar by default, with configurable width, colours and % indicator
 - **Git integration**: Shows current branch and working tree status (staged, unstaged, untracked)
 - **Token tracking**: Composite `T:` line with total, cache-read count, cache hit rate, input, and output counts
 - **Thinking level**: Lowercase selected level name with per-level colour
@@ -59,14 +57,14 @@ left and right segments are configured independently:
 }
 ```
 
-See `footer.example.json` in this directory for a full annotated example.
+See `footer.example.json` in this directory for the compact defaults. The two-row configuration above is an optional alternative.
 
 ## Available Segments
 
 | Segment | Description | Notes |
 |---------|-------------|-------|
 | `pi` | π symbol in accent blue | — |
-| `model` | Selected model name + `(provider)`, with physical route for virtual models | `segmentOptions.model`: `label` `"name"` (default) · `"id"`; `showProvider` (bool, default `true`). Options apply to the selected model, not the route. Route uses the latest current-branch assistant's recorded provider/model/thinking; missing routed thinking is omitted, never inferred from the selected level |
+| `model` | Selected model id/name + `(provider)`, with physical route for virtual models | `segmentOptions.model`: `label` `"name"` · `"id"` (default); `showProvider` (bool, default `true`). Options apply to the selected model, not the route. Route uses the latest current-branch assistant's recorded provider/model/thinking; missing routed thinking is omitted, never inferred from the selected level |
 | `path` | Current working directory | `segmentOptions.path.mode`: `"basename"` (default) · `"abbreviated"` · `"full"` |
 | `git` | Git branch and dirty indicators | `showBranch`, `showStaged`, `showUnstaged`, `showUntracked` (all bool) |
 | `context_pct` | Gradient bar + `X.X%` + max tokens | Bar fully configurable via `segmentOptions.contextBar` (see below). % and max tokens use `contextLabel` colour. Max tokens formatted with K/M suffix (e.g. `128k`, `2M`). Set `DEBUG_PCT` in `context.ts` to a number (0–100) to pin the bar at a fixed value for visual testing. |
@@ -79,7 +77,7 @@ See `footer.example.json` in this directory for a full annotated example.
 | `cache_read` | Cache read tokens (hidden if zero) | — |
 | `cache_write` | Cache write tokens (hidden if zero) | — |
 | `context_total` | Total context window size | — |
-| `separator` | `\|` divider | Coloured via `separator` in `colors` |
+| `separator` | `·` divider by default | Coloured via `separator` in `colors`; override via `icons.separator` |
 | `text:...` | Literal text, e.g. `text:⚡` | — |
 
 ## Branch and route accounting
@@ -104,18 +102,18 @@ The `context_pct` segment's bar is fully configurable via `segmentOptions.contex
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `barWidth` | number | `18` | Number of characters wide |
-| `filledChar` | string | `"▋"` | Character used for the filled portion |
-| `unfilledChar` | string | `"▋"` | Character used for the unfilled portion |
+| `barWidth` | number | `8` | Number of characters wide |
+| `filledChar` | string | `"▰"` | Character used for the filled portion |
+| `unfilledChar` | string | `"▱"` | Character used for the unfilled portion |
 | `unfilledColor` | color | `"#4e4c49"` | Color of the unfilled portion — hex or pi theme token |
 | `gradientStart` | color | `"#f29373"` | Gradient color at the left/empty end — hex or pi theme token |
 | `gradientMid` | color | `"#d67858"` | Gradient midpoint color — hex or pi theme token |
 | `gradientEnd` | color | `"#ae4f2f"` | Gradient color at the right/full end — hex or pi theme token |
 | `gradientMidPoint` | number | `0.55` | Where `gradientMid` sits along the bar (0–1). Below this fraction the gradient runs start→mid; above it mid→end |
-| `colorMode` | `"gradient"` \| `"threshold"` | `"gradient"` | `threshold` ignores the gradient: the filled cells and the % use `contextLabel` below `warnAt`, `contextWarn` from `warnAt`, `contextError` from `errorAt` |
+| `colorMode` | `"gradient"` \| `"threshold"` | `"threshold"` | `threshold` ignores the gradient: the filled cells and the % use `contextLabel` below `warnAt`, `contextWarn` from `warnAt`, `contextError` from `errorAt` |
 | `warnAt` | number | `60` | Percent where `threshold` mode turns to `contextWarn` |
 | `errorAt` | number | `85` | Percent where `threshold` mode turns to `contextError` |
-| `compactLabel` | boolean | `false` | Label as `40%/500k` (whole percent, dim window) instead of `40.0% / 500k` |
+| `compactLabel` | boolean | `true` | Label as `40%/500k` (whole percent, dim window) instead of `40.0% / 500k` |
 
 All color fields accept either a hex string (e.g. `"#ff6347"`) or a pi theme token (e.g. `"accent"`, `"warning"`, `"dim"`).
 
@@ -136,19 +134,19 @@ All color fields accept either a hex string (e.g. `"#ff6347"`) or a pi theme tok
 
 ## One-row layout
 
-Leave both row 2 lists empty and put everything on row 1. This pairs with
+This is the source default: leave both row 2 lists empty and put everything on row 1. No custom config is needed. This pairs with
 `chat-input`'s `"boxedView": false`, so the input's bottom rule sits directly
 above the footer:
 
 ```json
 {
-  "row1LeftSegments":  ["pi", "model", "thinking", "separator", "path", "git"],
+  "row1LeftSegments":  ["path", "separator", "git", "separator", "model", "text:⚡", "thinking"],
   "row1RightSegments": ["context_pct", "separator", "token_compact", "separator", "cost"],
   "row2LeftSegments":  [],
   "row2RightSegments": [],
-  "icons": { "separator": "·", "folder": "", "branch": "" },
+  "icons": { "separator": "·", "folder": "📂", "branch": "" },
   "segmentOptions": {
-    "model": { "label": "id", "showProvider": false },
+    "model": { "label": "id", "showProvider": true },
     "contextBar": {
       "barWidth": 8, "filledChar": "▰", "unfilledChar": "▱",
       "colorMode": "threshold", "compactLabel": true
@@ -158,7 +156,7 @@ above the footer:
 ```
 
 ```
-π  grok-4.7 medium · agentkit main *3 +1 ▰▱▱▱▱▱▱▱ 5%/500k · ↑25k ↓1.3k cache 74% · $0.10
+📂 agentkit · main *3 +1 · grok-4.7 (xai) ⚡ medium ▰▱▱▱▱▱▱▱ 5%/500k · ↑25k ↓1.3k cache 74% · $0.10
 ```
 
 ## Thinking Levels
@@ -196,7 +194,7 @@ The `git` segment shows:
 
 ## Icons
 
-Nerd Font icons are auto-detected from your terminal. Ghostty, WezTerm, Kitty, iTerm2, Alacritty, Foot, Rio, and Contour are recognised automatically — everything else falls back to plain Unicode symbols. If detection gets it wrong (e.g. when running inside tmux), override it:
+The folder defaults to `📂`, the separator to `·`, and the branch icon is hidden. The default layout includes `⚡` before thinking. Other Nerd Font icons are auto-detected from your terminal. Ghostty, WezTerm, Kitty, iTerm2, Alacritty, Foot, Rio, and Contour are recognised automatically — everything else falls back to plain Unicode symbols. If detection gets it wrong (e.g. when running inside tmux), override it:
 
 ```bash
 export FOOTER_NERD_FONTS=1  # force Nerd Fonts on

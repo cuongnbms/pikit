@@ -4,13 +4,22 @@ import type { FooterUserConfig, StatusLineSegmentId, ColorScheme, StatusLineSegm
 import { getDefaultColors } from "./theme.js";
 import type { IconSet } from "./icons.js";
 
-// Default segment configuration — two rows
-const DEFAULT_ROW1_LEFT: StatusLineSegmentId[] = ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"];
-const DEFAULT_ROW1_RIGHT: StatusLineSegmentId[] = [];
-const DEFAULT_ROW2_LEFT: StatusLineSegmentId[] = ["context_pct"];
-const DEFAULT_ROW2_RIGHT: StatusLineSegmentId[] = ["token_total", "separator", "cost"];
+// Compact one-row defaults; custom configs can still opt into two rows.
+const DEFAULT_ROW1_LEFT: StatusLineSegmentId[] = ["path", "separator", "git", "separator", "model", "text:⚡", "thinking"];
+const DEFAULT_ROW1_RIGHT: StatusLineSegmentId[] = ["context_pct", "separator", "token_compact", "separator", "cost"];
+const DEFAULT_ROW2_LEFT: StatusLineSegmentId[] = [];
+const DEFAULT_ROW2_RIGHT: StatusLineSegmentId[] = [];
+const DEFAULT_ICONS: Partial<IconSet> = { separator: "·", folder: "📂", branch: "" };
 
 const DEFAULT_SEGMENT_OPTIONS: StatusLineSegmentOptions = {
+  model: { label: "id", showProvider: true },
+  contextBar: {
+    barWidth: 8,
+    filledChar: "▰",
+    unfilledChar: "▱",
+    colorMode: "threshold",
+    compactLabel: true,
+  },
   path: { mode: "basename" },
   git: {
     showBranch: true,
@@ -81,9 +90,11 @@ export function getEffectiveConfig(): {
     row2RightSegments: userConfig?.row2RightSegments ?? DEFAULT_ROW2_RIGHT,
     colors: userConfig?.colors ?? getDefaultColors(),
     segmentOptions: {
-      ...DEFAULT_SEGMENT_OPTIONS,
-      ...userConfig?.segmentOptions,
+      model: { ...DEFAULT_SEGMENT_OPTIONS.model, ...userConfig?.segmentOptions?.model },
+      path: { ...DEFAULT_SEGMENT_OPTIONS.path, ...userConfig?.segmentOptions?.path },
+      git: { ...DEFAULT_SEGMENT_OPTIONS.git, ...userConfig?.segmentOptions?.git },
+      contextBar: { ...DEFAULT_SEGMENT_OPTIONS.contextBar, ...userConfig?.segmentOptions?.contextBar },
     },
-    icons: userConfig?.icons ?? {},
+    icons: { ...DEFAULT_ICONS, ...userConfig?.icons },
   };
 }

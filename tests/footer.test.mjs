@@ -14,6 +14,10 @@ const extensionPath = fileURLToPath(new URL("../agent/extensions/footer/index.ts
 const statsConfig = {
   row1LeftSegments: ["token_in", "token_out", "cache_read", "cache_write", "cost", "thinking"],
   row1RightSegments: [], row2LeftSegments: ["context_pct", "context_total"], row2RightSegments: [],
+  segmentOptions: {
+    model: { label: "name" },
+    contextBar: { barWidth: 18, filledChar: "▋", unfilledChar: "▋", compactLabel: false },
+  },
 };
 
 function usage(input = 10) {
@@ -27,7 +31,7 @@ function assistant(id, stopReason = "stop", input = 10) {
       stopReason, usage: usage(input) } };
 }
 
-async function fixture(t, { config = statsConfig, entries = [assistant("a")],
+async function fixture(t, { config = statsConfig, entries = [assistant("a")], gitBranch = null,
   theme = { fg: (_name, text) => text } } = {}) {
   const root = await mkdtemp(join(tmpdir(), "pikit-footer-"));
   const oldHome = process.env.HOME;
@@ -69,7 +73,7 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")],
     getContextUsage: () => { state.contextReads++; return state.context; },
     ui: { setFooter: (factory) => {
       component = factory({ requestRender() {} }, theme,
-        { getGitBranch: () => null, onBranchChange: () => () => {} });
+        { getGitBranch: () => gitBranch, onBranchChange: () => () => {} });
     } },
   };
   for (const handler of loaded.extensions[0].handlers.get("session_start")) {
@@ -85,10 +89,54 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")],
       .map((line) => trim ? line.trim() : line) };
 }
 
-for (const layout of ["default", "example"]) {
+test("default footer is compact with provider, folder and lightning icons", async (t) => {
+  const { visibleWidth } = await import("@earendil-works/pi-tui");
+  const oldNerdFonts = process.env.FOOTER_NERD_FONTS;
+  t.after(() => {
+    if (oldNerdFonts === undefined) delete process.env.FOOTER_NERD_FONTS;
+    else process.env.FOOTER_NERD_FONTS = oldNerdFonts;
+  });
+  const example = JSON.parse(await readFile(
+    new URL("../agent/extensions/footer/footer.example.json", import.meta.url), "utf8"));
+  for (const nerdFonts of ["0", "1"]) {
+    for (const config of [null, example]) {
+      await t.test(`${nerdFonts === "1" ? "nerd" : "plain"} icons, ${config ? "example" : "no config"}`, async (child) => {
+        process.env.FOOTER_NERD_FONTS = nerdFonts;
+        const f = await fixture(child, { config, gitBranch: "footer-test-branch" });
+        const lines = f.render(240, false);
+        assert.equal(lines.length, 1);
+        assert.equal(visibleWidth(lines[0]), 240);
+        assert.match(lines[0], /^ 📂 \S+ · footer-test-branch · virtual \(fixture\) ⚡ high/);
+        assert.match(lines[0], /▰{3}▱{5} 40%\/2\.0k · ↑10 ↓2 cache 18% · \$0\.10 $/);
+        for (const width of [20, 44, 80]) {
+          assert.ok(f.render(width).every((line) => visibleWidth(line) <= width));
+        }
+      });
+    }
+  }
+});
+
+test("partial segment overrides preserve the remaining compact defaults", async (t) => {
+  const f = await fixture(t, { config: { segmentOptions: {
+    model: { showProvider: false }, contextBar: { warnAt: 70 },
+  } } });
+  assert.match(f.render()[0], /virtual ⚡ high/);
+  assert.doesNotMatch(f.render()[0], /\(fixture\)/);
+  assert.match(f.render()[0], /▰{3}▱{5} 40%\/2\.0k/);
+});
+
+test("default footer without git keeps a single separator between project and model", async (t) => {
+  const f = await fixture(t, { config: null });
+  assert.match(f.render()[0], /^📂 \S+ · virtual \(fixture\) ⚡ high/);
+  assert.doesNotMatch(f.render()[0], /·\s*·/);
+});
+
+for (const layout of ["custom two-row"]) {
   test(`${layout} layout places context at bottom-left and token/cost stats at bottom-right`, async (t) => {
-    const config = layout === "default" ? null : JSON.parse(await readFile(
-      new URL("../agent/extensions/footer/footer.example.json", import.meta.url), "utf8"));
+    const config = { ...statsConfig,
+      row1LeftSegments: ["pi", "separator", "model", "text:⚡", "thinking", "separator", "path", "git"],
+      row2LeftSegments: ["context_pct"], row2RightSegments: ["token_total", "separator", "cost"],
+    };
     const f = await fixture(t, { config });
     for (const width of [100, 120, 240]) {
       const lines = f.render(width, false);
@@ -106,7 +154,10 @@ for (const layout of ["default", "example"]) {
 }
 
 test("explicit context placement overrides the default layout", async (t) => {
-  const f = await fixture(t, { config: { row1RightSegments: ["context_pct"], row2LeftSegments: [] } });
+  const f = await fixture(t, { config: { ...statsConfig,
+    row1RightSegments: ["context_pct"], row2LeftSegments: [],
+    row2RightSegments: ["token_total", "separator", "cost"],
+  } });
   assert.match(f.render()[1], /40\.0% \/ 2\.0k$/);
   assert.doesNotMatch(f.render()[3], /40\.0%|2\.0k/);
   assert.match(f.render()[3], /T:.*\$0\.10$/);
@@ -412,7 +463,8 @@ test("threshold context colours stay neutral below warnAt and escalate at warnAt
   const theme = { fg: (name, text) => `<${name}>${text}</>` };
   const f = await fixture(t, { theme, config: {
     row1LeftSegments: ["context_pct"], row1RightSegments: [], row2LeftSegments: [], row2RightSegments: [],
-    segmentOptions: { contextBar: { barWidth: 4, colorMode: "threshold", warnAt: 60, errorAt: 85,
+    segmentOptions: { contextBar: { barWidth: 4, filledChar: "▋", unfilledChar: "▋",
+      colorMode: "threshold", warnAt: 60, errorAt: 85,
       unfilledColor: "dim", compactLabel: true } },
   } });
   assert.match(f.render()[0], /^<muted>▋▋<\/><dim>▋▋<\/> <muted>40%<\/><dim>\/2\.0k<\/>/);

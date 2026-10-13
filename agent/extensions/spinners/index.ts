@@ -22,6 +22,7 @@ const CYCLE_INTERVAL_MS = 2500;
 const TYPEWRITER_MS = 42;
 const REFRESH_INTERVAL_MS = 1000;
 const TOKENS_PER_CHAR = 4; // Rough estimate: 1 token ≈ 4 characters
+const WORKING_FRAMES = ["·", "✢", "✳", "✶", "✻", "✽"];
 
 interface TextBlock {
   type: "text";
@@ -118,6 +119,7 @@ export default function spinners(pi: ExtensionAPI) {
    */
   function resetState(): void {
     stopAllTimers();
+    if (activeCtx) restoreDefaultWorkingMessage(activeCtx);
     agentStartTime = 0;
     turnStartTime = 0;
     responseLength = 0;
@@ -139,20 +141,21 @@ export default function spinners(pi: ExtensionAPI) {
   /**
    * Builds complete working message with verb and status.
    * @param ctx - Extension context with UI
-   * @param verb - Verb to display (without "...")
+   * @param verb - Complete or partially revealed verb label
    */
-  function buildWorkingMessage(ctx: ExtensionContext, verb?: string): string {
+  function buildWorkingMessage(ctx: ExtensionContext, verb = `${currentVerb}…`): string {
     const parts = buildStatusParts();
-    const verbText = colorize(ctx.ui.theme, themeTokens.verb, `${verb || currentVerb}...`);
-    const separator = colorize(ctx.ui.theme, themeTokens.separator, `${themeTokens.separatorIcon} `);
-    const status = colorize(ctx.ui.theme, themeTokens.status, parts.join(" · "));
-    return `${verbText}\n${separator}${status}`;
+    const verbText = colorize(ctx.ui.theme, themeTokens.verb, verb);
+    const separator = colorize(ctx.ui.theme, themeTokens.separator, themeTokens.separatorIcon);
+    const status = parts.map(part => colorize(ctx.ui.theme, themeTokens.status, part))
+      .join(` ${separator} `);
+    return `${verbText} ${colorize(ctx.ui.theme, themeTokens.status, "(")}${status}${colorize(ctx.ui.theme, themeTokens.status, ")")}`;
   }
 
   /**
    * Updates the working message in the UI.
    * @param ctx - Extension context with UI
-   * @param verb - Optional verb override (without "...")
+   * @param verb - Optional complete or partially revealed verb label
    */
   function syncWorkingMessage(ctx: ExtensionContext, verb?: string): void {
     if (!ctx.hasUI) return;
@@ -173,6 +176,7 @@ export default function spinners(pi: ExtensionAPI) {
     if (!ctx.hasUI) return;
     try {
       ctx.ui.setWorkingMessage();
+      ctx.ui.setWorkingIndicator();
     } catch {
       // noop
     }
@@ -221,18 +225,12 @@ export default function spinners(pi: ExtensionAPI) {
    */
   function typeVerb(ctx: ExtensionContext, verb: string): void {
     if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
-    const fullVerb = verb + "...";
+    const fullVerb = verb + "…";
     const chars = fullVerb.split("");
     let i = 1;
 
-    // Build message with partial verb during animation
-    const buildTypeMessage = (partial: string) => {
-      const parts = buildStatusParts();
-      const verbText = colorize(ctx.ui.theme, themeTokens.verb, partial);
-      const separator = colorize(ctx.ui.theme, themeTokens.separator, `${themeTokens.separatorIcon} `);
-      const status = colorize(ctx.ui.theme, themeTokens.status, parts.join(" · "));
-      return `${verbText}\n${separator}${status}`;
-    };
+    // Share the one-line format with normal status refreshes.
+    const buildTypeMessage = (partial: string) => buildWorkingMessage(ctx, partial);
 
     try {
       ctx.ui.setWorkingMessage(buildTypeMessage(chars[0]));
@@ -287,6 +285,10 @@ export default function spinners(pi: ExtensionAPI) {
     if (!ctx.hasUI) return;
     if (cycleTimer || typeTimer) return;
 
+    ctx.ui.setWorkingIndicator({
+      frames: WORKING_FRAMES.map(frame => colorize(ctx.ui.theme, themeTokens.verb, frame)),
+      intervalMs: 120,
+    });
     resetResponseTracking();
     startCycling(ctx);
     startRefreshLoop(ctx);

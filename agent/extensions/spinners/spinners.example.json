@@ -4,6 +4,6 @@
     "verb": "accent",
     "separator": "borderMuted",
     "status": "muted",
-    "separatorIcon": "└─"
+    "separatorIcon": "·"
   }
 }
