@@ -27,7 +27,7 @@ function assistant(id, stopReason = "stop", input = 10) {
       stopReason, usage: usage(input) } };
 }
 
-async function fixture(t, { config = statsConfig, entries = [assistant("a")], countAPI = true } = {}) {
+async function fixture(t, { config = statsConfig, entries = [assistant("a")] } = {}) {
   const root = await mkdtemp(join(tmpdir(), "pikit-footer-"));
   const oldHome = process.env.HOME;
   process.env.HOME = root;
@@ -56,7 +56,7 @@ async function fixture(t, { config = statsConfig, entries = [assistant("a")], co
     },
     getBranch: () => { state.branchReads++; return state.branch; },
   };
-  if (countAPI) manager.getEntryCount = () => state.entries.length;
+  manager.getEntryCount = () => state.entries.length;
   const loaded = await loadExtensions([extensionPath], root);
   assert.deepEqual(loaded.errors, []);
   loaded.runtime.getThinkingLevel = () => state.thinking;
@@ -144,17 +144,6 @@ test("partial session APIs do not suppress unrelated footer segments", async (t)
   const f = await fixture(t, { config: { ...statsConfig, row1LeftSegments: ["text:status ready"] } });
   f.ctx.sessionManager = { getBranch: () => [] };
   assert.equal(f.render()[1], "status ready");
-});
-
-test("older Pi getEntries length fallback avoids repeated aggregation", async (t) => {
-  const f = await fixture(t, { countAPI: false });
-  f.render(); f.render(); f.render();
-  assert.equal(f.state.scans, 1);
-  assert.equal(f.state.reads, 3);
-  assert.equal(f.state.branchReads, 0);
-  f.state.entries.push(assistant("new"));
-  assert.match(f.render()[1], /^↑ 20 ↓ 4/);
-  assert.equal(f.state.scans, 2);
 });
 
 test("cache invalidates on leaf, count, session ID and manager identity, not branch length", async (t) => {

@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Theme, AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
-import { Box, Markdown, Text } from "@earendil-works/pi-tui";
+import { AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
+import { Markdown, Text } from "@earendil-works/pi-tui";
 import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, fitLineToWidth } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { createAssistantMessage } from "./components/assistant-message.js";
@@ -77,25 +77,20 @@ export default function styledOutputs(pi: ExtensionAPI) {
     const originalUserRender = userProto.render;
     userProto.render = function patchedUserRender(width: number) {
       if (width <= 0) return [];
-      const contentBox = this.children?.find((child: any) => child instanceof Box && Array.isArray(child.children));
-      if (contentBox?.children) {
-        for (let i = 0; i < contentBox.children.length; i++) {
-          const child = contentBox.children[i];
-          if (child instanceof Markdown) {
-            const mdChild = child as any;
-            const text = mdChild.text;
-            if (text) {
-              contentBox.children[i] = createUserMessage(text, mdChild);
-            }
-          }
-        }
-
-        contentBox.paddingX = 0;
-
-        if (!CONFIG.userMessage.isThemeBackgroundVisible) {
-          contentBox.paddingY = 0;
-          contentBox.setBgFn(undefined);
-        }
+      // Pi rebuilds a fresh native Markdown (padded, with its own background) on every layout change.
+      const children = this.children ?? [];
+      for (let i = 0; i < children.length; i++) {
+        if (!(children[i] instanceof Markdown)) continue;
+        const mdChild = children[i] as any;
+        if (!mdChild.text) continue;
+        const background = mdChild.defaultTextStyle?.bgColor;
+        // Our prefix owns the left gap and the background must span it, so both move to our row.
+        mdChild.paddingX = 0;
+        mdChild.defaultTextStyle = { ...mdChild.defaultTextStyle, bgColor: undefined };
+        if (!CONFIG.userMessage.isThemeBackgroundVisible) mdChild.paddingY = 0;
+        mdChild.invalidate();
+        children[i] = createUserMessage(mdChild.text, mdChild,
+          CONFIG.userMessage.isThemeBackgroundVisible ? background : undefined);
       }
       return originalUserRender.call(this, width);
     };
@@ -267,23 +262,8 @@ export default function styledOutputs(pi: ExtensionAPI) {
     const SPINNER_FRAMES = [...SPINNER_CHARS, ...[...SPINNER_CHARS].reverse()];
     const SPINNER_INTERVAL = 80;
 
-    const deriveExcludeFromNativeInstance = (instance: any): boolean => {
-      if (typeof instance.excludeFromContext === "boolean") return instance.excludeFromContext;
-      // Pi 0.80–0.99 keeps the semantic token only in its native border closure.
-      // Observe that synchronous call, not ANSI equality (theme colors can coincide).
-      const originalFg = Theme.prototype.fg;
-      let token: string | undefined;
-      try {
-        Theme.prototype.fg = function (color, text) {
-          token = color;
-          return originalFg.call(this, color, text);
-        };
-        instance.children?.[1]?.color?.("");
-        return token === "dim";
-      } finally {
-        Theme.prototype.fg = originalFg;
-      }
-    };
+    // `colorKey` is the native semantic marker: "dim" for `!!` (excluded from context).
+    const deriveExcludeFromNativeInstance = (instance: any): boolean => instance.colorKey === "dim";
 
     const startStyledBashTimer = (instance: any) => {
       if (instance.status !== "running" || instance._spinnerInterval) return;

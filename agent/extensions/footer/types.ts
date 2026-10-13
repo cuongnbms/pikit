@@ -122,7 +122,7 @@ export interface UserBashEvent {
   command: string;
 }
 
-// Structural shape keeps newer usage entry categories compatible with Pi 0.80 types.
+// Structural shape of the session entries the footer aggregates.
 export interface SessionEvent {
   type: string;
   provider?: string;

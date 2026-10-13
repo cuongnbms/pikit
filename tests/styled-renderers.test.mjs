@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { after, before, test } from "node:test";
@@ -26,11 +24,6 @@ const utils = await jiti.import(join(extensionDir, "utils.ts"));
 const shared = await jiti.import(join(extensionDir, "components/tool-shared.ts"));
 const fallback = await jiti.import(join(extensionDir, "components/fallback-renderer.ts"));
 const { CONFIG } = await jiti.import(join(extensionDir, "config.ts"));
-const { version } = JSON.parse(await readFile(join(piDir, "package.json"), "utf8"));
-// Feature detection, not a version assumption: older dev Pi has no MouseRegion/transformers.
-const mouseOptions = { skip: !tui.MouseRegion && `Pi ${version} predates thinking mouse regions` };
-const transformOptions = { skip: !existsSync(join(piDir, "dist/modes/interactive/components/markdown-transform.js")) && `Pi ${version} predates Markdown transformers` };
-const codemodeOptions = { skip: !existsSync(join(piDir, "dist/extensions/codemode/renderer.js")) && `Pi ${version} predates codemode` };
 let extension, theme, mdTheme;
 const ui = { requestRender() {} };
 const activeTimers = new Set();
@@ -91,7 +84,7 @@ function finishTool(component) {
   component.updateResult({ content: [], details: {} }, false);
 }
 
-test("renderer-owned tools receive partial nested-call progress", codemodeOptions, async () => {
+test("renderer-owned tools receive partial nested-call progress", async () => {
   const { codemodeRenderers } = await import(pathToFileURL(join(piDir, "dist/extensions/codemode/renderer.js")));
   const component = tool("codemode", { name: "codemode", ...codemodeRenderers });
   component.updateResult({ content: [], details: { calls: [{ name: "nested-read", args: "fixture.txt", status: "running" }] } }, true);
@@ -112,7 +105,7 @@ test("styled built-in and fallback results remain spinner-only during partial up
   }
 });
 
-test("assistant streaming state reaches retained Markdown transformers", transformOptions, () => {
+test("assistant streaming state reaches retained Markdown transformers", () => {
   const transformer = (_text, context) => `${context.messageType}:${context.isStreaming ? "streaming" : "settled"}`;
   const component = new pi.AssistantMessageComponent(undefined, false, mdTheme, "Thinking...", 1, [transformer]);
   const message = assistant([{ type: "text", text: "raw answer" }]);
@@ -122,7 +115,7 @@ test("assistant streaming state reaches retained Markdown transformers", transfo
   assert.match(display(component).join("\n"), /assistant:settled/);
 });
 
-test("thinking styling retains clickable mouse wrapper and transformer across hide/show", mouseOptions, () => {
+test("thinking styling retains clickable mouse wrapper and transformer across hide/show", () => {
   const transformer = (_text, context) => `${context.messageType}:${context.isStreaming ? "streaming" : "settled"}`;
   const component = new pi.AssistantMessageComponent(undefined, false, mdTheme, "Thinking...", 1, [transformer]);
   component.updateContent(assistant([{ type: "thinking", thinking: "raw thought" }]), true);
@@ -149,7 +142,7 @@ test("user styling locates the native Box and survives layout rebuilding", () =>
   assert.match(display(component).join("\n"), new RegExp(CONFIG.userMessage.prefix));
 });
 
-test("user styling preserves native Markdown options and transformers", transformOptions, () => {
+test("user styling preserves native Markdown options and transformers", () => {
   const component = new pi.UserMessageComponent("raw", mdTheme, 1, [() => "9. literal\\_marker"]);
   const output = display(component).join("\n");
   assert.match(output, /9\. literal\\_marker/);
@@ -770,4 +763,17 @@ test("assistant and thinking bodies align one space after their prefix, like too
   assert.ok(answer.some((row) => /^ ● hello there/.test(row)), answer.join("\n"));
   const thought = display(new pi.AssistantMessageComponent(assistant([{ type: "thinking", thinking: "deep thought" }]), false, mdTheme));
   assert.ok(thought.some((row) => /^ {3}deep thought/.test(row)), thought.join("\n"));
+});
+
+test("user message background spans the prefix column", () => {
+  const row = new pi.UserMessageComponent("hi", mdTheme, 1).render(40).find((line) => plain([line])[0].includes("> hi"));
+  assert.match(row, /^(?:\x1b\][^\x07]*\x07)*\x1b\[48;/, "row must open with the background before the prefix");
+});
+
+// The Pi loader keeps its own CONFIG (moduleCache:false), so the no-background path is checked on the factory.
+test("user message rows carry no background when none is given", async () => {
+  const { createUserMessage } = await jiti.import(join(extensionDir, "components/user-message.ts"));
+  const rows = createUserMessage("hi", mdTheme).render(40);
+  assert.match(plain(rows).join("\n"), /> hi/);
+  assert.doesNotMatch(rows.join("\n"), /\x1b\[48;/);
 });

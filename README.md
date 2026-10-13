@@ -86,8 +86,8 @@ pnpm install
 
 #### Development checks
 
-The dev API baseline is pinned to **Pi 0.99.1**; host-provided Pi packages remain
-wildcard peer dependencies and are not bundled.
+Pikit supports only the latest Pi. The dev API baseline is pinned to **Pi 1.2.0**;
+host-provided Pi packages are `>=1.2.0` peer dependencies and are not bundled.
 
 ```bash
 pnpm check
@@ -121,7 +121,7 @@ minimumReleaseAgeExclude:
   - 'some-package@1.2.3'
 ```
 
-The selected Pi/Chord `0.99.1` dev baseline has exact-version age exceptions;
+The selected Pi/Chord `1.2.0` dev baseline has exact-version age exceptions;
 other versions and packages still use the 7-day gate.
 
 The same file also carries an `allowBuilds` block — pnpm blocks dependency install scripts by default, and the transitive dev-only entries listed there are deliberately left unbuilt.

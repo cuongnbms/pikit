@@ -19,7 +19,8 @@ export interface UserMessage {
   render(width: number): string[];
 }
 
-export function createUserMessage(text: string, markdownTheme: any): UserMessage {
+/** `background` paints whole rows (prefix included), replacing the native Markdown background. */
+export function createUserMessage(text: string, markdownTheme: any, background?: (text: string) => string): UserMessage {
   const md = markdownTheme instanceof Markdown
     ? markdownTheme
     : new Markdown(text, 0, 0, markdownTheme, {
@@ -60,11 +61,14 @@ export function createUserMessage(text: string, markdownTheme: any): UserMessage
     let prefixPlaced = false;
 
     const rendered = mdLines.map((line: string) => {
+      let row: string;
       if (!prefixPlaced && hasVisibleContent(line)) {
         prefixPlaced = true;
-        return fitToWidth(`${prefixText}${line}`, width);
+        row = fitToWidth(`${prefixText}${line}`, width);
+      } else {
+        row = fitToWidth(`${paddingPrefix}${line}`, width);
       }
-      return fitToWidth(`${paddingPrefix}${line}`, width);
+      return background ? background(row + " ".repeat(Math.max(0, width - visibleWidth(row)))) : row;
     });
 
     cachedWidth = width;

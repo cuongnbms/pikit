@@ -12,12 +12,6 @@ const piDir = process.env.PI_TEST_CODING_AGENT_DIR
   : dirname(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))));
 const { loadExtensions } = await import(pathToFileURL(join(piDir, "dist/core/extensions/loader.js")));
 const { createAllToolDefinitions } = await import(pathToFileURL(join(piDir, "dist/core/tools/index.js")));
-const { version } = JSON.parse(await readFile(join(piDir, "package.json"), "utf8"));
-const [major, minor] = version.split(".").map(Number);
-const sessionCwdSupported = major > 0 || minor >= 85;
-const structuredBashSupported = major > 0 || minor >= 99;
-const cwdOptions = { skip: !sessionCwdSupported && `Pi ${version} predates session CWD support` };
-const structuredOptions = { skip: !structuredBashSupported && `Pi ${version} predates structured Bash results` };
 const extensionPath = fileURLToPath(new URL("../agent/extensions/styled-outputs/index.ts", import.meta.url));
 let root, fallbackCwd, sessionCwd, tools, originals, ctx;
 
@@ -89,17 +83,17 @@ for (const name of ["read", "bash", "edit", "write", "grep", "find", "ls"]) {
   });
 }
 
-test("read resolves relative paths against the session CWD", cwdOptions, async () => {
+test("read resolves relative paths against the session CWD", async () => {
   assert.equal(text(await execute("read", { path: "fixture.txt" })), "session needle\n");
 });
 
-test("write writes in the session CWD, not the factory CWD", cwdOptions, async () => {
+test("write writes in the session CWD, not the factory CWD", async () => {
   await execute("write", { path: "write-fixture.txt", content: "session written\n" });
   assert.equal(await readFile(join(sessionCwd, "write-fixture.txt"), "utf8"), "session written\n");
   assert.equal(await readFile(join(fallbackCwd, "write-fixture.txt"), "utf8"), "fallback content\n");
 });
 
-test("edit edits in the session CWD and retains argument preparation", cwdOptions, async () => {
+test("edit edits in the session CWD and retains argument preparation", async () => {
   const args = tools.get("edit").prepareArguments({
     path: "edit-fixture.txt", oldText: "session needle", newText: "session edited",
   });
@@ -108,25 +102,25 @@ test("edit edits in the session CWD and retains argument preparation", cwdOption
   assert.equal(await readFile(join(fallbackCwd, "edit-fixture.txt"), "utf8"), "fallback content\n");
 });
 
-test("ls defaults to the session CWD", cwdOptions, async () => {
+test("ls defaults to the session CWD", async () => {
   assert.match(text(await execute("ls", {})), /session-only\.txt/);
 });
 
-test("find defaults to the session CWD", cwdOptions, async () => {
+test("find defaults to the session CWD", async () => {
   assert.match(text(await execute("find", { pattern: "session-only.txt" })), /session-only\.txt/);
 });
 
-test("grep defaults to the session CWD", cwdOptions, async () => {
+test("grep defaults to the session CWD", async () => {
   assert.match(text(await execute("grep", { pattern: "session needle" })), /fixture\.txt:1:.*session needle/);
 });
 
-test("bash receives the session CWD and session/model environment", cwdOptions, async () => {
+test("bash receives the session CWD and session/model environment", async () => {
   const command = 'printf "%s\\n" "$PWD" "$PI_SESSION_ID" "$PI_SESSION_FILE" "$PI_PROVIDER" "$PI_MODEL" "$PI_REASONING_LEVEL"';
   assert.equal(text(await execute("bash", { command })),
     `${sessionCwd}\ntest-session\n${join(sessionCwd, "session.jsonl")}\ntest-provider\ntest-model\nhigh\n`);
 });
 
-test("bash retains its output schema and structured nonzero exit result", structuredOptions, async () => {
+test("bash retains its output schema and structured nonzero exit result", async () => {
   assert.ok(tools.get("bash").outputSchema);
   const result = await execute("bash", { command: "printf 'structured output'; exit 7" });
   assert.equal(result.isError, true);

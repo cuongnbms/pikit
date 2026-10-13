@@ -7,16 +7,16 @@
 # Escape hatch: add "<pkg>@<version>" entries to minimumReleaseAgeExclude when
 # you genuinely need a version that was just published.
 minimumReleaseAge: 10080
-# Explicitly selected dev API baseline; keep the age gate for unrelated releases.
+# Explicitly selected dev API baseline (latest Pi only); keep the age gate for unrelated releases.
 minimumReleaseAgeExclude:
-  - '@earendil-works/chord@0.99.1'
-  - '@earendil-works/pi-agent-core@0.99.1'
-  - '@earendil-works/pi-ai@0.99.1'
-  - '@earendil-works/pi-codemode@0.99.1'
-  - '@earendil-works/pi-coding-agent@0.99.1'
-  - '@earendil-works/pi-mcp@0.99.1'
-  - '@earendil-works/pi-telemetry@0.99.1'
-  - '@earendil-works/pi-tui@0.99.1'
+  - '@earendil-works/chord@1.2.0'
+  - '@earendil-works/pi-agent-core@1.2.0'
+  - '@earendil-works/pi-ai@1.2.0'
+  - '@earendil-works/pi-codemode@1.2.0'
+  - '@earendil-works/pi-coding-agent@1.2.0'
+  - '@earendil-works/pi-mcp@1.2.0'
+  - '@earendil-works/pi-telemetry@1.2.0'
+  - '@earendil-works/pi-tui@1.2.0'
 
 # Keep transitive dev install scripts blocked explicitly, so pnpm does not
 # treat them as unreviewed builds. esbuild uses its platform optional binary;

@@ -165,7 +165,7 @@ export default function footer(pi: ExtensionAPI) {
   });
 
   function getSessionStats(ctx: ExtensionContext) {
-    // getEntryCount is new in Pi 0.99; older hosts expose only getEntries().
+    // The runtime SessionManager has getEntryCount, but ReadonlySessionManager's type omits it.
     const manager = ctx.sessionManager as ExtensionContext["sessionManager"] & { getEntryCount?: () => number };
     const sessionId = manager?.getSessionId?.();
     const leafId = manager?.getLeafId?.() ?? null;
@@ -181,10 +181,8 @@ export default function footer(pi: ExtensionAPI) {
         return cached.model === entry && cached.window === entry.contextWindow &&
           cached.provider === entry.provider && cached.id === entry.id;
       });
-    let entries: SessionEvent[] | undefined;
-    const entryCount = typeof manager?.getEntryCount === "function"
-      ? manager.getEntryCount()
-      : (entries = manager?.getEntries?.() ?? []).length;
+    // Partial managers (tests, embedders) may omit the API; treat them as empty history.
+    const entryCount = manager?.getEntryCount?.() ?? 0;
 
     // Check identity/count before either cumulative or canonical context scans.
     if (sessionStats && sessionStats.manager === manager &&
@@ -195,7 +193,7 @@ export default function footer(pi: ExtensionAPI) {
     }
 
     const usageStats: UsageStats = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
-    const allEntries: SessionEvent[] = entries ?? manager?.getEntries?.() ?? [];
+    const allEntries: SessionEvent[] = manager?.getEntries?.() ?? [];
     for (const entry of allEntries) {
       const usage = entry.type === "message"
         ? (entry.message?.role === "assistant" || entry.message?.role === "toolResult" ? entry.message.usage : undefined)
