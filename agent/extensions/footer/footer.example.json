@@ -19,6 +19,10 @@
     "separator": "#87827a"
   },
   "segmentOptions": {
+    "model": {
+      "label": "name",
+      "showProvider": true
+    },
     "path": {
       "mode": "basename"
     },
@@ -36,7 +40,11 @@
       "gradientStart": "#f29373",
       "gradientMid": "#d67858",
       "gradientEnd": "#ae4f2f",
-      "gradientMidPoint": 0.55
+      "gradientMidPoint": 0.55,
+      "colorMode": "gradient",
+      "warnAt": 60,
+      "errorAt": 85,
+      "compactLabel": false
     }
   }
 }
