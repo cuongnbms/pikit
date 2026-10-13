@@ -14,6 +14,8 @@ const DEFAULT_START = { r: 0xf2, g: 0x93, b: 0x73 };
 const DEFAULT_MID   = { r: 0xd6, g: 0x78, b: 0x58 };
 const DEFAULT_END   = { r: 0xae, g: 0x4f, b: 0x2f };
 const DEFAULT_MID_FRAC = 0.55; // 0–1: where MID sits along the gradient
+const DEFAULT_WARN_AT  = 60;
+const DEFAULT_ERROR_AT = 85;
 
 function lerp(a: number, b: number, t: number): number {
   return Math.round(a + (b - a) * t);
@@ -60,18 +62,36 @@ export const contextPctSegment = {
 
     const filled = pct === null ? 0 : Math.round((pct / 100) * barWidth);
 
-    let bar = "";
-    for (let i = 0; i < barWidth; i++) {
-      if (i < filled) {
-        bar += positionColor(i, barWidth, start, mid, end, midFrac) + filledChar;
-      } else {
-        bar += applyColor(ctx.theme, unfilledColor, unfilledChar);
-      }
+    // Threshold mode stays neutral until the window is worth watching.
+    let level = "contextLabel";
+    if (barOpts.colorMode === "threshold" && pct !== null) {
+      if (pct >= (barOpts.errorAt ?? DEFAULT_ERROR_AT)) level = "contextError";
+      else if (pct >= (barOpts.warnAt ?? DEFAULT_WARN_AT)) level = "contextWarn";
     }
-    bar += "\x1b[0m";
+
+    let bar = "";
+    if (barOpts.colorMode === "threshold") {
+      if (filled > 0) bar += color(ctx, level, filledChar.repeat(filled));
+      if (filled < barWidth) bar += applyColor(ctx.theme, unfilledColor, unfilledChar.repeat(barWidth - filled));
+    } else {
+      for (let i = 0; i < barWidth; i++) {
+        if (i < filled) {
+          bar += positionColor(i, barWidth, start, mid, end, midFrac) + filledChar;
+        } else {
+          bar += applyColor(ctx.theme, unfilledColor, unfilledChar);
+        }
+      }
+      bar += "\x1b[0m";
+    }
+
+    if (barOpts.compactLabel) {
+      const pctStr = color(ctx, level, pct === null ? "?" : `${Math.round(pct)}%`);
+      const windowStr = applyColor(ctx.theme, "dim", `/${formatTokens(ctx.contextWindow)}`);
+      return { content: `${bar} ${pctStr}${windowStr}`, visible: true };
+    }
 
     const pctLabel = pct === null ? "?" : `${pct.toFixed(1)}%`;
-    const pctStr = color(ctx, "contextLabel", pctLabel);
+    const pctStr = color(ctx, level, pctLabel);
     const tokensLabel = `/ ${formatTokens(ctx.contextWindow)}`;
     const tokensStr = color(ctx, "contextLabel", tokensLabel);
 

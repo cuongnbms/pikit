@@ -15,6 +15,9 @@ Row 2 left:  <context bar> <pct%> / <max tokens>
 Row 2 right: T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out> | $<cost>
 ```
 
+When both row 2 lists are empty, the footer renders row 1 only, with no blank
+line or divider above it (see [One-row layout](#one-row-layout)).
+
 ## Features
 
 - **Two-row layout**: Info grouped by purpose across two lines
@@ -63,13 +66,14 @@ See `footer.example.json` in this directory for a full annotated example.
 | Segment | Description | Notes |
 |---------|-------------|-------|
 | `pi` | π symbol in accent blue | — |
-| `model` | Selected model name + `(provider)`, with physical route for virtual models | Route uses the latest current-branch assistant's recorded provider/model/thinking; missing routed thinking is omitted, never inferred from the selected level |
+| `model` | Selected model name + `(provider)`, with physical route for virtual models | `segmentOptions.model`: `label` `"name"` (default) · `"id"`; `showProvider` (bool, default `true`). Options apply to the selected model, not the route. Route uses the latest current-branch assistant's recorded provider/model/thinking; missing routed thinking is omitted, never inferred from the selected level |
 | `path` | Current working directory | `segmentOptions.path.mode`: `"basename"` (default) · `"abbreviated"` · `"full"` |
 | `git` | Git branch and dirty indicators | `showBranch`, `showStaged`, `showUnstaged`, `showUntracked` (all bool) |
 | `context_pct` | Gradient bar + `X.X%` + max tokens | Bar fully configurable via `segmentOptions.contextBar` (see below). % and max tokens use `contextLabel` colour. Max tokens formatted with K/M suffix (e.g. `128k`, `2M`). Set `DEBUG_PCT` in `context.ts` to a number (0–100) to pin the bar at a fixed value for visual testing. |
 | `cost` | `$<amount>` | `$` dim, amount in `cost` colour (`muted` by default) |
 | `thinking` | `<level>` | Lowercase level with per-level colour; always visible |
 | `token_total` | `T: <total> (<cache-read> cached, <hit-rate>% hit) ↑ <in> ↓ <out>` | Hit rate is `cacheRead / (input + cacheRead + cacheWrite)`; labels are dim and numbers use the `tokens` colour |
+| `token_compact` | `↑<in> ↓<out> cache <hit-rate>%` | Short form of `token_total` for one-row layouts; hit rate rounded to a whole percent |
 | `token_in` | Input tokens | Available for custom layouts |
 | `token_out` | Output tokens | Available for custom layouts |
 | `cache_read` | Cache read tokens (hidden if zero) | — |
@@ -108,6 +112,10 @@ The `context_pct` segment's bar is fully configurable via `segmentOptions.contex
 | `gradientMid` | color | `"#d67858"` | Gradient midpoint color — hex or pi theme token |
 | `gradientEnd` | color | `"#ae4f2f"` | Gradient color at the right/full end — hex or pi theme token |
 | `gradientMidPoint` | number | `0.55` | Where `gradientMid` sits along the bar (0–1). Below this fraction the gradient runs start→mid; above it mid→end |
+| `colorMode` | `"gradient"` \| `"threshold"` | `"gradient"` | `threshold` ignores the gradient: the filled cells and the % use `contextLabel` below `warnAt`, `contextWarn` from `warnAt`, `contextError` from `errorAt` |
+| `warnAt` | number | `60` | Percent where `threshold` mode turns to `contextWarn` |
+| `errorAt` | number | `85` | Percent where `threshold` mode turns to `contextError` |
+| `compactLabel` | boolean | `false` | Label as `40%/500k` (whole percent, dim window) instead of `40.0% / 500k` |
 
 All color fields accept either a hex string (e.g. `"#ff6347"`) or a pi theme token (e.g. `"accent"`, `"warning"`, `"dim"`).
 
@@ -124,6 +132,33 @@ All color fields accept either a hex string (e.g. `"#ff6347"`) or a pi theme tok
     }
   }
 }
+```
+
+## One-row layout
+
+Leave both row 2 lists empty and put everything on row 1. This pairs with
+`chat-input`'s `"boxedView": false`, so the input's bottom rule sits directly
+above the footer:
+
+```json
+{
+  "row1LeftSegments":  ["pi", "model", "thinking", "separator", "path", "git"],
+  "row1RightSegments": ["context_pct", "separator", "token_compact", "separator", "cost"],
+  "row2LeftSegments":  [],
+  "row2RightSegments": [],
+  "icons": { "separator": "·", "folder": "", "branch": "" },
+  "segmentOptions": {
+    "model": { "label": "id", "showProvider": false },
+    "contextBar": {
+      "barWidth": 8, "filledChar": "▰", "unfilledChar": "▱",
+      "colorMode": "threshold", "compactLabel": true
+    }
+  }
+}
+```
+
+```
+π  grok-4.7 medium · agentkit main *3 +1 ▰▱▱▱▱▱▱▱ 5%/500k · ↑25k ↓1.3k cache 74% · $0.10
 ```
 
 ## Thinking Levels

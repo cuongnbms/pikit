@@ -307,6 +307,10 @@ export default function footer(pi: ExtensionAPI) {
             effectiveConfig.row1RightSegments,
             width,
           );
+          if (effectiveConfig.row2LeftSegments.length === 0 && effectiveConfig.row2RightSegments.length === 0) {
+            return [row1];
+          }
+
           const row2 = buildFooterContent(
             segmentCtx,
             effectiveConfig.row2LeftSegments,
