@@ -23,7 +23,8 @@ export function createAssistantMessage(text: string, markdownTheme: any): Assist
   const md = markdownTheme instanceof Markdown
     ? markdownTheme
     : new Markdown(text, 0, 0, markdownTheme);
-  const preferredPadding = (md as any).paddingX ?? 0;
+  // Our prefix already supplies the gap; native paddingX would push the body a column right.
+  const preferredPadding = 0;
   let cachedWidth: number | undefined;
   let cachedLines: string[] | undefined;
 

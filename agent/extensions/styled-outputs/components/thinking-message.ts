@@ -44,7 +44,8 @@ export function createThinkingMessage(text: string, markdownTheme: any): Thinkin
   const md = sourceMarkdown
     ? new Markdown(text, sourceMarkdown.paddingX, sourceMarkdown.paddingY, sourceMarkdown.theme, defaultTextStyle, sourceMarkdown.options)
     : new Markdown(text, 0, 0, markdownTheme, defaultTextStyle);
-  const preferredPadding = (md as any).paddingX ?? 0;
+  // Our prefix already supplies the gap; native paddingX would push the body a column right.
+  const preferredPadding = 0;
   let cachedWidth: number | undefined;
   let cachedLines: string[] | undefined;
 

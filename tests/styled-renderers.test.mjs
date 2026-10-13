@@ -764,3 +764,10 @@ test("collapsed output skips leading blank rows so the branch never sits empty",
     assert.match(rows(component), /⎿  foo\n\s+bar/);
   } finally { component.setComplete(0, false); }
 });
+
+test("assistant and thinking bodies align one space after their prefix, like tool titles", () => {
+  const answer = display(new pi.AssistantMessageComponent(assistant([{ type: "text", text: "hello there" }]), false, mdTheme));
+  assert.ok(answer.some((row) => /^ ● hello there/.test(row)), answer.join("\n"));
+  const thought = display(new pi.AssistantMessageComponent(assistant([{ type: "thinking", thinking: "deep thought" }]), false, mdTheme));
+  assert.ok(thought.some((row) => /^ {3}deep thought/.test(row)), thought.join("\n"));
+});
