@@ -2,7 +2,7 @@ import { Text } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CONFIG } from "../config.js";
 import type { TrimStrategy } from "../types.js";
-import { applyColor, applyBgColor, toolPrefix, errorPrefix, getVisibleWidth, getExpandToggleKey } from "../utils.js";
+import { applyColor, applyBgColor, toolPrefix, errorPrefix, getVisibleWidth, getExpandToggleKey, hasVisibleContent } from "../utils.js";
 
 // --- Group-aware config resolution ---
 
@@ -87,7 +87,7 @@ export function toolHeader(label: string, summary: string, theme: Theme, dot?: s
   const d = dot ?? (isError ? errorPrefix(theme) : toolPrefix(theme));
   const color = titleColor ?? CONFIG.tools.general.titleColor;
   const title = applyColor(theme, color, theme.bold(label));
-  return `${d}${title} ${summary}`;
+  return hasVisibleContent(summary) ? `${d}${title}(${summary})` : `${d}${title}`;
 }
 
 export function branchLine(text: string, theme: Theme): string {
@@ -95,12 +95,60 @@ export function branchLine(text: string, theme: Theme): string {
   return `${icon} ${text}`;
 }
 
-export function indentLine(text: string): string {
-  return `${" ".repeat(getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1)}${text}`;
+/** Live width of the branch gutter; config can change at runtime, so never snapshot it. */
+export function indentWidth(): number {
+  return getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
 }
 
-export function expandHint(theme: Theme): string {
-  return applyColor(theme, CONFIG.tools.general.expandHintColor, ` • ${getExpandToggleKey()} to expand`);
+export function indentLine(text: string): string {
+  return `${" ".repeat(indentWidth())}${text}`;
+}
+
+export function expandHint(theme: Theme, color: string = CONFIG.tools.general.expandHintColor): string {
+  return applyColor(theme, color, ` (${getExpandToggleKey()} to expand)`);
+}
+
+export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+/** Status row under the header, e.g. "⎿  Read 12 lines". */
+export function statusLine(text: string, theme: Theme): string {
+  return branchLine(applyColor(theme, CONFIG.tools.toolSuccess.labelColor, text), theme);
+}
+
+/** Move a "\n<indent>first\n<indent>…" block so its first row sits on the branch. */
+export function onBranch(block: string, theme: Theme): string {
+  return branchLine(block.slice(1 + indentWidth()), theme);
+}
+
+/** Index after the last line with visible content (trailing blank rows are not output). */
+export function contentEnd(lines: string[]): number {
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim().length === 0) end--;
+  return end;
+}
+
+/** Index of the first line with visible content. */
+export function contentStart(lines: string[]): number {
+  let start = 0;
+  while (start < lines.length && lines[start].trim().length === 0) start++;
+  return start;
+}
+
+/** First collapsedPreviewLines rows from `start` (default: first visible row), then "… +N lines (ctrl+o to expand)". */
+export function previewLines(lines: string[], theme: Theme, start = contentStart(lines), end = contentEnd(lines)): string {
+  const max = Math.max(0, CONFIG.tools.general.collapsedPreviewLines);
+  const shownEnd = Math.min(end, start + max);
+  let out = "";
+  for (let i = start; i < shownEnd; i++) {
+    out += "\n" + indentLine(applyColor(theme, CONFIG.tools.general.outputColor, lines[i]));
+  }
+  const hidden = end - shownEnd;
+  if (hidden > 0) {
+    out += "\n" + indentLine(applyColor(theme, CONFIG.tools.general.expandHintColor, `… +${plural(hidden, "line")}`) + expandHint(theme));
+  }
+  return out;
 }
 
 const NO_OUTPUT_PLACEHOLDER = "(no output)";
@@ -128,20 +176,21 @@ export function renderSuppressedPartial(ctx: any): Text {
   return makeText(ctx.lastComponent, "");
 }
 
-export function errorLabel(theme: Theme): string {
-  return branchLine(applyColor(theme, CONFIG.tools.toolError.labelColor, "Error"), theme);
+export function errorLabel(theme: Theme, detail?: string): string {
+  return branchLine(applyColor(theme, CONFIG.tools.toolError.labelColor, detail ? `Error: ${detail}` : "Error"), theme);
+}
+
+/** Error status from the first visible line; the rest previews (collapsed) or lists in full (expanded). */
+export function errorResult(lines: string[], expanded: boolean, theme: Theme, expandedLines: (lines: string[]) => string): string {
+  const first = lines.findIndex((line) => line.trim().length > 0);
+  if (first < 0) return errorLabel(theme);
+  const status = errorLabel(theme, lines[first].trim());
+  if (expanded) return status + expandedLines(lines);
+  return status + previewLines(lines, theme, first + 1);
 }
 
 export function renderPartial(theme: Theme): string {
-  return branchLine(applyColor(theme, CONFIG.tools.general.outputColor, "Running..."), theme);
-}
-
-export function doneLabel(theme: Theme, count?: { label: string; value: number }): string {
-  const done = applyColor(theme, CONFIG.tools.toolSuccess.labelColor, "Done");
-  const text = count
-    ? `${done}${applyColor(theme, CONFIG.tools.general.expandHintColor, " • ")}${applyColor(theme, CONFIG.tools.general.countColor, `${count.value} ${count.label}`)}`
-    : done;
-  return branchLine(text, theme);
+  return branchLine(applyColor(theme, CONFIG.tools.general.outputColor, "Running…"), theme);
 }
 
 // --- Expanded output trimming ---

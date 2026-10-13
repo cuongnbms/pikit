@@ -1,9 +1,8 @@
 import { Markdown } from "@earendil-works/pi-tui";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth, currentTheme, applyColor, getExpandToggleKey, fitLineToWidth, wrapAnsiToWidth } from "../utils.js";
-import { branchLine, indentLine } from "./tool-shared.js";
+import { currentTheme, applyColor, fitLineToWidth, wrapAnsiToWidth } from "../utils.js";
+import { branchLine, expandHint, indentLine, indentWidth } from "./tool-shared.js";
 
-const BRANCH_INDENT_WIDTH = getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
 const HPAD = () => CONFIG.tools.general.horizontalPadding;
 const VPAD = () => CONFIG.tools.general.verticalPadding;
 
@@ -68,14 +67,13 @@ export function createCustomMessage(
     const t = currentTheme!;
     const contentWidth = innerWidth(width);
 
-    // Line 1: " ● Custom tool  custom-type-name"
+    // Line 1: "● custom-type-name"
     const dot = applyColor(t, CONFIG.customMessages.prefixColor, CONFIG.customMessages.prefix);
-    const label = applyColor(t, CONFIG.customMessages.titleColor, t.bold("Custom tool"));
     const displayName = (details && typeof details === 'object' && 'title' in details && typeof (details as any).title === 'string')
       ? (details as any).title
       : customType;
-    const name = applyColor(t, CONFIG.customMessages.nameColor, displayName);
-    const header = `${dot} ${label} ${name}`;
+    const name = applyColor(t, CONFIG.customMessages.titleColor, t.bold(displayName));
+    const header = `${dot} ${name}`;
 
     // Line 2: branch + status
     const loaded = applyColor(t, CONFIG.customMessages.labelColor, "Done");
@@ -83,7 +81,7 @@ export function createCustomMessage(
     if (!expanded) {
       cachedWidth = width;
       cachedExpanded = expanded;
-      const hint = applyColor(t, CONFIG.customMessages.expandHintColor, ` • ${getExpandToggleKey()} to expand`);
+      const hint = expandHint(t, CONFIG.customMessages.expandHintColor);
       cachedLines = addPadding(["", header, branchLine(loaded, t) + hint], width);
       return cachedLines;
     }
@@ -91,8 +89,9 @@ export function createCustomMessage(
     // Expanded: header + branch + indented markdown content
     const lines: string[] = ["", header, branchLine(loaded, t)];
 
-    if (contentWidth > BRANCH_INDENT_WIDTH) {
-      const mdLines = md.render(Math.max(1, contentWidth - BRANCH_INDENT_WIDTH));
+    const branchIndent = indentWidth();
+    if (contentWidth > branchIndent) {
+      const mdLines = md.render(Math.max(1, contentWidth - branchIndent));
       for (const line of mdLines) {
         lines.push(indentLine(applyColor(t, CONFIG.customMessages.outputColor, line)));
       }

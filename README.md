@@ -133,7 +133,7 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 
 ### UI & UX
 
-* **styled-outputs** — Swaps flat console readouts for color-coded diff blocks, expandable sections, custom icons, and visual tool groups. → [`README`](agent/extensions/styled-outputs/README.md)
+* **styled-outputs** — Claude Code–style transcript: `● Tool(args)` headers, `⎿` status rows, inline diffs, collapsed output previews, and expandable sections. → [`README`](agent/extensions/styled-outputs/README.md)
 * **footer** — A dense, customized status line detailing active models, token metrics, live run costs, and current git state. Supports Nerd Fonts and ASCII fallbacks. → [`README`](agent/extensions/footer/README.md)
 * **chat-input** — Draws a stylized, isolated Unicode frame around your active terminal prompt line while preserving all underlying editing shortcuts. → [`README`](agent/extensions/chat-input/README.md)
 * **spinners** — Trades static loader indicators for dynamic, timed thinking states and live token accumulators. → [`README`](agent/extensions/spinners/README.md)

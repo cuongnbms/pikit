@@ -136,13 +136,13 @@ export function getExpandToggleKey(): string {
 
 export function shortenPath(filePath: string, cwd: string): string {
   if (!filePath) return "";
-  const home = process.env.HOME ?? "";
-  if (home && filePath.startsWith(home)) {
-    return "~" + filePath.slice(home.length);
-  }
   const rel = relative(cwd, filePath);
   if (!rel.startsWith("..") && !rel.startsWith("/")) {
     return rel || ".";
+  }
+  const home = process.env.HOME ?? "";
+  if (home && filePath.startsWith(home)) {
+    return "~" + filePath.slice(home.length);
   }
   return filePath;
 }

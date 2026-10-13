@@ -63,6 +63,7 @@ export interface ToolGeneralUserConfig {
   verticalPadding?: number;
   horizontalPadding?: number;
   maxExpandedLines?: number;
+  collapsedPreviewLines?: number;
   moreColor?: string;
   moreBgColor?: string;
   diffAddedColor?: string;

@@ -73,6 +73,7 @@ after(async () => {
   globalThis.clearInterval = clearIntervalNative;
   themeModule.stopThemeWatcher();
 });
+const unbranch = (row) => row.trim().replace(/^⎿\s*/, "");
 const plain = (lines) => lines.map((line) => line.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "").replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, ""));
 const display = (component, width = 80) => plain(component.render(width));
 const resultContext = (extra = {}) => ({ state: {}, args: {}, expanded: true, isPartial: false, isError: false, invalidate() {}, ...extra });
@@ -176,7 +177,7 @@ test("expanded Bash replay preserves blank output rows", () => {
     component.appendOutput("first\n\nsecond");
     component.setComplete(0, false);
     component.setExpanded(true);
-    const rows = display(component).map((row) => row.trim());
+    const rows = display(component).map(unbranch);
     const first = rows.indexOf("first");
     assert.deepEqual(rows.slice(first, first + 3), ["first", "", "second"]);
   } finally { component.setComplete(0, false); }
@@ -186,12 +187,12 @@ test("Bash replay derives Command versus Shell from each native instance, not la
   await emit(extension, "user_bash", { excludeFromContext: true });
   const included = new pi.BashExecutionComponent("included", ui, false);
   included.setComplete(0, false);
-  assert.match(display(included).join("\n"), /Command included/);
+  assert.match(display(included).join("\n"), /(?<!!)! included/);
   await emit(extension, "user_bash", { excludeFromContext: false });
   const excluded = new pi.BashExecutionComponent("excluded", ui, true);
   excluded.setComplete(0, false);
-  assert.match(display(excluded).join("\n"), /Shell excluded/);
-  assert.match(display(included).join("\n"), /Command included/);
+  assert.match(display(excluded).join("\n"), /!! excluded/);
+  assert.match(display(included).join("\n"), /(?<!!)! included/);
 });
 
 test("reload registers lifecycle cleanup despite prototype patch flag and stops running Bash timers", async () => {
@@ -229,7 +230,7 @@ test("Command versus Shell is semantic even when dim and bashMode colors coincid
   try {
     colors.set("dim", "\x1b[31m");
     colors.set("bashMode", "\x1b[31m");
-    for (const [excluded, label] of [[false, "Command"], [true, "Shell"]]) {
+    for (const [excluded, label] of [[false, "(?<!!)!"], [true, "!!"]]) {
       const component = new pi.BashExecutionComponent("same colors", ui, excluded);
       component.setComplete(0, false);
       assert.match(display(component).join("\n"), new RegExp(`${label} same colors`));
@@ -253,7 +254,9 @@ test("narrow native assistant and thinking retain fitting body characters", () =
       const content = type === "text" ? { type, text } : { type, thinking: text };
       const component = new pi.AssistantMessageComponent(assistant([content]), false, mdTheme);
       const prefix = type === "text" ? CONFIG.assistantMessage.prefix : CONFIG.thinkingMessage.prefix;
-      const body = display(component, width).join("").replaceAll(prefix, "").replace(/\s/g, "");
+      // The thinking label sits on its own header row; only body rows carry the text.
+      const rows = display(component, width).filter((row) => type === "text" || !row.includes(prefix));
+      const body = rows.join("").replaceAll(prefix, "").replace(/\s/g, "");
       assert.equal(body, text, `${type} at width ${width}`);
       assertFits(component, width);
     }
@@ -313,9 +316,9 @@ test("Bash caches output derivation and Text across renders and same-line native
     component.outputLines = ["new array"];
     assert.match(display(component).join("\n"), /new array/);
     component.setExpanded(false);
-    assert.doesNotMatch(display(component).join("\n"), /new array/);
+    assert.match(display(component).join("\n"), /new array/, "collapsed output keeps a short preview");
     component.setComplete(4, false, { truncated: true }, "/tmp/one.txt");
-    assert.match(display(component).join("\n"), /Error.*expand/);
+    assert.match(display(component).join("\n"), /Error: Exit 4/);
     component.fullOutputPath = "/tmp/two.txt";
     assert.match(display(component).join("\n"), /Full output: \/tmp\/two.txt/);
     component.truncationResult.truncated = false;
@@ -463,7 +466,7 @@ test("Bash spinner ticks do not scan output lines, and native invalidation refre
     component.appendOutput(" same-line");
     assert.match(display(component).join("\n"), /line-199 same-line/);
     component.setComplete(0, false);
-    assert.match(display(component).join("\n"), /200 lines/);
+    assert.match(display(component).join("\n"), /160 lines above/);
   } finally { colors.set(color, previous); component.setComplete(0, false); }
 });
 
@@ -544,7 +547,7 @@ test("expanded fallback output retains multiple text blocks and blank rows", () 
   const component = fallback.renderFallbackResult("unknown", { content: [
     { type: "text", text: "first\n\nsecond" }, { type: "text", text: "third" },
   ] }, { expanded: true, isPartial: false }, theme, resultContext());
-  const rows = display(component).map((row) => row.trim());
+  const rows = display(component).map(unbranch);
   assert.ok(rows.includes("third"));
   const first = rows.indexOf("first");
   assert.deepEqual(rows.slice(first, first + 4), ["first", "", "second", "third"]);
@@ -556,7 +559,7 @@ test("expanded built-in text preserves all blocks and blank output rows", () => 
     const component = definition.renderResult({ content: [
       { type: "text", text: "first\n\nsecond" }, { type: "text", text: "third" },
     ], details: {} }, { expanded: true, isPartial: false }, theme, resultContext());
-    const rows = display(component).map((row) => row.trim());
+    const rows = display(component).map(unbranch);
     const first = rows.indexOf("first");
     assert.deepEqual(rows.slice(first, first + 4), ["first", "", "second", "third"], name);
   }
@@ -644,3 +647,120 @@ for (const [file, factory, args] of [
     }
   });
 }
+
+// --- Claude Code style ---
+
+const HINT = String.raw`\(\S+ to expand\)`;
+const rows = (component) => display(component).map((row) => row.trimEnd()).join("\n");
+function renderTool(name, args, result, { expanded = false, isError = false } = {}) {
+  const definition = extension.tools.get(name).definition;
+  const ctx = resultContext({ args, expanded, isError });
+  const header = rows(definition.renderCall(args, theme, ctx));
+  const body = rows(definition.renderResult(result, { expanded, isPartial: false }, theme, ctx));
+  return { header, body };
+}
+const textResult = (text, details = {}) => ({ content: [{ type: "text", text }], details });
+
+test("tool headers use Claude Code Tool(args) format with a filled dot", () => {
+  assert.match(renderTool("read", { path: "src/foo.ts" }, textResult("a")).header, /● Read\(src\/foo\.ts\)/);
+  assert.match(renderTool("bash", { command: "npm test" }, textResult("ok")).header, /● Bash\(npm test\)/);
+  assert.match(renderTool("edit", { path: "src/foo.ts", edits: [] }, textResult("ok")).header, /● Update\(src\/foo\.ts\)/);
+  assert.match(renderTool("write", { path: "src/foo.ts", content: "x" }, textResult("ok")).header, /● Write\(src\/foo\.ts\)/);
+  assert.match(renderTool("grep", { pattern: "foo", path: "src" }, textResult("a")).header, /● Search\(pattern: "foo", path: "src"\)/);
+  assert.match(renderTool("grep", { pattern: "foo" }, textResult("a")).header, /● Search\(pattern: "foo"\)$/m);
+  assert.match(renderTool("find", { pattern: "*.ts", path: "src" }, textResult("a")).header, /● Search\(pattern: "\*\.ts", path: "src"\)/);
+  assert.match(renderTool("ls", { path: "src" }, textResult("a")).header, /● List\(src\)/);
+  assert.match(display(fallback.renderFallbackCall("mcp_tool", { query: "hello" }, theme, resultContext())).join("\n"), /● mcp_tool\(hello\)/);
+});
+
+test("tool status lines use the ⎿ branch and Claude Code wording", () => {
+  assert.match(renderTool("read", { path: "a.ts" }, textResult("a\nb\nc")).body, new RegExp(`⎿  Read 3 lines ${HINT}`));
+  assert.match(renderTool("read", { path: "a.ts" }, textResult("a")).body, /⎿  Read 1 line\b/);
+  assert.match(renderTool("grep", { pattern: "x" }, textResult("a:1:x\nb:2:x")).body, new RegExp(`⎿  Found 2 matches ${HINT}`));
+  assert.match(renderTool("grep", { pattern: "x" }, textResult("No matches found")).body, /⎿  No matches found/);
+  assert.match(renderTool("find", { pattern: "x" }, textResult("a.ts\nb.ts\nc.ts")).body, new RegExp(`⎿  Found 3 files ${HINT}`));
+  assert.match(renderTool("ls", { path: "." }, textResult("a\nb/")).body, new RegExp(`⎿  Listed 2 paths ${HINT}`));
+  assert.match(renderTool("read", { path: "a.ts" }, textResult("ENOENT: no such file"), { isError: true }).body, /⎿  Error: ENOENT: no such file/);
+});
+
+test("collapsed Bash and fallback results preview the first lines like Claude Code", () => {
+  const text = "l1\nl2\nl3\nl4\nl5";
+  for (const body of [
+    renderTool("bash", { command: "x" }, textResult(text)).body,
+    rows(fallback.renderFallbackResult("t", textResult(text), { expanded: false, isPartial: false }, theme, resultContext({ expanded: false }))),
+  ]) {
+    assert.match(body, /⎿  l1\n\s+l2\n\s+l3\n\s+… \+2 lines \(\S+ to expand\)/);
+    assert.doesNotMatch(body, /l4|l5/);
+  }
+  assert.match(renderTool("bash", { command: "x" }, textResult("one\ntwo")).body, /⎿  one\n\s+two$/);
+  assert.doesNotMatch(renderTool("bash", { command: "x" }, textResult("one\ntwo")).body, /expand/);
+  assert.match(renderTool("bash", { command: "x" }, textResult("(no output)")).body, /⎿  \(No content\)/);
+  const failed = renderTool("bash", { command: "x" }, textResult("boom\nCommand exited with code 2"), { isError: true }).body;
+  assert.match(failed, /⎿  Error: Exit 2\n\s+boom/);
+});
+
+test("Edit shows the Claude Code summary and diff without expanding", () => {
+  const diff = "  1 keep\n-2 old\n+2 new\n+3 extra";
+  const { body } = renderTool("edit", { path: "src/foo.ts", edits: [{}] }, textResult("ok", { diff }));
+  assert.match(body, /⎿  Updated src\/foo\.ts with 2 additions and 1 removal/);
+  assert.match(body, /-2 old/);
+  assert.match(body, /\+3 extra/);
+});
+
+test("Write shows the Claude Code summary and a content preview", () => {
+  const { body } = renderTool("write", { path: "src/foo.ts", content: "a\nb\nc\nd\ne" }, textResult("ok"));
+  assert.match(body, /⎿  Wrote 5 lines to src\/foo\.ts\n\s+a\n\s+b\n\s+c\n\s+… \+2 lines \(\S+ to expand\)/);
+  const expanded = renderTool("write", { path: "src/foo.ts", content: "a\nb\nc\nd\ne" }, textResult("ok"), { expanded: true }).body;
+  assert.match(expanded, /\n\s+e$/m);
+});
+
+test("user ! commands render as ! cmd with a ⎿ output preview", () => {
+  const component = new pi.BashExecutionComponent("ls", ui, false);
+  try {
+    component.appendOutput("a\nb\nc\nd");
+    component.setComplete(0, false);
+    const output = rows(component);
+    assert.match(output, /! ls/);
+    assert.match(output, /⎿  a\n\s+b\n\s+c\n\s+… \+1 lines? \(\S+ to expand\)/);
+  } finally { component.setComplete(0, false); }
+});
+
+test("skill and custom messages use the Claude Code header and branch", async () => {
+  const { createCustomMessage } = await jiti.import(join(extensionDir, "components/custom-message.ts"));
+  const { createSkillInvocationMessage } = await jiti.import(join(extensionDir, "components/skill-message.ts"));
+  const skill = display(createSkillInvocationMessage("brainstorm", "body", mdTheme)).join("\n");
+  assert.match(skill, new RegExp(`● Skill\\(brainstorm\\)\\n\\s*⎿  Loaded ${HINT}`));
+  const custom = display(createCustomMessage("note", "body", undefined, mdTheme)).join("\n");
+  assert.match(custom, new RegExp(`● note\\n\\s*⎿  Done ${HINT}`));
+});
+
+test("thinking renders a ✻ Thinking… header line above the thought", async () => {
+  const { createThinkingMessage } = await jiti.import(join(extensionDir, "components/thinking-message.ts"));
+  const rows = display(createThinkingMessage("deep thought", mdTheme));
+  const header = rows.findIndex((row) => /✻ Thinking…/.test(row));
+  assert.ok(header >= 0, rows.join("\n"));
+  assert.doesNotMatch(rows[header], /deep thought/);
+  assert.ok(rows.slice(header + 1).some((row) => /deep thought/.test(row)));
+});
+
+test("user messages use the > prompt prefix", () => {
+  assert.match(display(new pi.UserMessageComponent("hello", mdTheme, 1)).join("\n"), /> hello/);
+});
+
+test("paths inside the working directory render relative, like Claude Code", () => {
+  const home = process.env.HOME;
+  assert.equal(utils.shortenPath(join(home, "proj/src/a.ts"), join(home, "proj")), "src/a.ts");
+  assert.equal(utils.shortenPath(join(home, "other/b.ts"), join(home, "proj")), "~/other/b.ts");
+  assert.equal(utils.shortenPath("/etc/hosts", join(home, "proj")), "/etc/hosts");
+});
+
+test("collapsed output skips leading blank rows so the branch never sits empty", () => {
+  const body = renderTool("bash", { command: "x" }, textResult("\n\nfoo\nbar")).body;
+  assert.match(body, /⎿  foo\n\s+bar/);
+  const component = new pi.BashExecutionComponent("blank lead", ui, false);
+  try {
+    component.appendOutput("\nfoo\nbar");
+    component.setComplete(0, false);
+    assert.match(rows(component), /⎿  foo\n\s+bar/);
+  } finally { component.setComplete(0, false); }
+});

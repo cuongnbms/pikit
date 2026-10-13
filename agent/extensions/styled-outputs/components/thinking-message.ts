@@ -7,14 +7,19 @@ function fitToWidth(line: string, width: number): string {
   return visibleWidth(line) <= width ? line : truncateToWidth(line, width, "");
 }
 
-function getFullPrefix(): string {
+function getPrefix(): string {
   const prefix = currentTheme
     ? applyColor(currentTheme, CONFIG.thinkingMessage.prefixColor, CONFIG.thinkingMessage.prefix)
     : CONFIG.thinkingMessage.prefix;
+  return ` ${prefix} `;
+}
+
+/** "✻ Thinking…" header row; the thought renders below it, aligned to the prefix. */
+function getLabelHeader(prefixText: string): string {
   const label = currentTheme
     ? applyColor(currentTheme, CONFIG.thinkingMessage.labelColor, CONFIG.thinkingMessage.label)
     : CONFIG.thinkingMessage.label;
-  return ` ${prefix}${CONFIG.thinkingMessage.isLabelVisible ? ` ${label} ` : ` `}`;
+  return `${prefixText}\x1b[3m${label}\x1b[23m`;
 }
 
 export interface ThinkingMessage {
@@ -58,26 +63,32 @@ export function createThinkingMessage(text: string, markdownTheme: any): Thinkin
       return cachedLines;
     }
 
-    const fullPrefix = getFullPrefix();
-    const firstLinePrefixWidth = visibleWidth(fullPrefix);
+    const prefixText = getPrefix();
+    const prefixWidth = visibleWidth(prefixText);
+    const isLabelVisible = CONFIG.thinkingMessage.isLabelVisible;
 
-    if (width <= firstLinePrefixWidth) {
+    if (width <= prefixWidth) {
       cachedWidth = width;
-      cachedLines = [fitToWidth(fullPrefix.trim(), width)];
+      cachedLines = [fitToWidth(prefixText.trim(), width)];
       return cachedLines;
     }
 
-    const mdLines = renderMarkdownWithPadding(md, width - firstLinePrefixWidth, preferredPadding);
-    const paddingPrefix = " ".repeat(firstLinePrefixWidth);
-    let prefixPlaced = false;
+    const mdLines = renderMarkdownWithPadding(md, width - prefixWidth, preferredPadding);
+    const paddingPrefix = " ".repeat(prefixWidth);
+    // With the label visible the header row owns the prefix; every thought row is padded.
+    let prefixPlaced = isLabelVisible;
 
     const rendered = mdLines.map((line: string) => {
       if (!prefixPlaced && hasVisibleContent(line)) {
         prefixPlaced = true;
-        return fitToWidth(`${fullPrefix}${line}`, width);
+        return fitToWidth(`${prefixText}${line}`, width);
       }
       return fitToWidth(`${paddingPrefix}${line}`, width);
     });
+    if (isLabelVisible) {
+      const first = rendered.findIndex(hasVisibleContent);
+      rendered.splice(Math.max(0, first), 0, fitToWidth(getLabelHeader(prefixText), width));
+    }
 
     cachedWidth = width;
     cachedLines = rendered;

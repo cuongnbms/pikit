@@ -3,8 +3,8 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CONFIG } from "../config.js";
 import { applyColor } from "../utils.js";
 import {
-  makeText, toolHeader, expandHint,
-  outputLines, getFirstTextContent, getImageContentCount, errorLabel, renderPartial, doneLabel,
+  makeText, toolHeader, statusLine, plural, onBranch, previewLines, errorResult,
+  outputLines, getFirstTextContent, getImageContentCount, errorLabel, renderPartial,
   ensureSpinner, clearSpinner, spinnerDot, groupTitleColor,
   formatExpandedLines, renderSuppressedPartial,
 } from "./tool-shared.js";
@@ -41,31 +41,20 @@ export function renderFallbackResult(toolName: string, result: any, options: { e
 
   const text = getFirstTextContent(result);
   const lines = outputLines(text);
-  const nonEmptyLines = lines.filter((l: string) => l.trim().length > 0);
+  const hasText = lines.some((l: string) => l.trim().length > 0);
   const imageCount = getImageContentCount(result);
+  const styled = () => lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
 
-  if (nonEmptyLines.length === 0 && imageCount > 0) {
-    const count = { label: `image${imageCount > 1 ? "s" : ""}`, value: imageCount };
-    const status = ctx.isError
-      ? errorLabel(theme) + applyColor(theme, CONFIG.tools.general.countColor, ` • ${count.value} ${count.label}`)
-      : doneLabel(theme, count);
-    return makeText(ctx.lastComponent, status);
+  if (!hasText && imageCount > 0) {
+    const count = plural(imageCount, "image");
+    return makeText(ctx.lastComponent, ctx.isError ? errorLabel(theme, count) : statusLine(count, theme));
   }
 
   if (ctx.isError) {
-    if (!options.expanded) {
-      return makeText(ctx.lastComponent, errorLabel(theme) + expandHint(theme));
-    }
-    const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
-    return makeText(ctx.lastComponent, errorLabel(theme) + formatExpandedLines(styled, "tail", theme));
+    return makeText(ctx.lastComponent, errorResult(lines, options.expanded, theme, () => formatExpandedLines(styled(), "tail", theme)));
   }
 
-  const count = nonEmptyLines.length > 0 ? { label: "lines", value: nonEmptyLines.length } : undefined;
-
-  if (!options.expanded) {
-    return makeText(ctx.lastComponent, doneLabel(theme, count) + (nonEmptyLines.length > 0 ? expandHint(theme) : ""));
-  }
-
-  const styled = lines.map((l: string) => applyColor(theme, CONFIG.tools.general.outputColor, l));
-  return makeText(ctx.lastComponent, doneLabel(theme, count) + formatExpandedLines(styled, "tail", theme));
+  if (!hasText) return makeText(ctx.lastComponent, statusLine("(No content)", theme));
+  const block = options.expanded ? formatExpandedLines(styled(), "tail", theme) : previewLines(lines, theme);
+  return makeText(ctx.lastComponent, onBranch(block, theme));
 }

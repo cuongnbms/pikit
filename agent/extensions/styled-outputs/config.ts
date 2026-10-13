@@ -13,41 +13,41 @@ export const DEFAULT_CONFIG = {
 
   // User message
   USER_MESSAGE: {
-    PREFIX: "❯",
-    COLOR: "accent",
+    PREFIX: ">",
+    COLOR: "dim",
     BODY_COLOR: "text",
     IS_THEME_BACKGROUND_VISIBLE: true,
   },
   
   // Skill invocation
   SKILLS: {
-    PREFIX: "✓",
-    PREFIX_COLOR: "accent",
+    PREFIX: "●",
+    PREFIX_COLOR: "success",
     TITLE_COLOR: "toolTitle",
-    NAME_COLOR: "dim",
-    LABEL_COLOR: "success",
+    NAME_COLOR: "text",
+    LABEL_COLOR: "text",
     EXPAND_HINT_COLOR: "dim",
     OUTPUT_COLOR: "dim",
   },
 
   // Custom message
   CUSTOM_MESSAGES: {
-    PREFIX: "✓",
-    PREFIX_COLOR: "accent",
+    PREFIX: "●",
+    PREFIX_COLOR: "success",
     TITLE_COLOR: "toolTitle",
-    NAME_COLOR: "dim",
-    LABEL_COLOR: "success",
+    NAME_COLOR: "text",
+    LABEL_COLOR: "text",
     EXPAND_HINT_COLOR: "dim",
     OUTPUT_COLOR: "dim",
   },
 
   // Thinking message
   THINKING_MESSAGE: {
-    PREFIX: "✽",
-    PREFIX_COLOR: "accent",
-    LABEL: "Thinking:",
+    PREFIX: "✻",
+    PREFIX_COLOR: "muted",
+    LABEL: "Thinking…",
     LABEL_COLOR: "muted",
-    IS_LABEL_VISIBLE: false,
+    IS_LABEL_VISIBLE: true,
     MESSAGE_COLOR: "dim",
   },
 
@@ -62,31 +62,32 @@ export const DEFAULT_CONFIG = {
       COLOR: "muted",                                 // color for the spinner prefix
     },
     TOOL_SUCCESS: {
-      PREFIX: "✓",                                    // icon for successful tool execution
+      PREFIX: "●",                                    // icon for successful tool execution
       PREFIX_COLOR: "success",                        // color for the success prefix
-      LABEL_COLOR: "success",                         // color for the success label (DONE on the 2nd line, the status line)
+      LABEL_COLOR: "text",                            // color for the status text on the 2nd line (e.g. "Read 12 lines")
     },
     TOOL_ERROR: {
-      PREFIX: "✗",                                    // icon for error tool execution
+      PREFIX: "●",                                    // icon for error tool execution
       PREFIX_COLOR: "error",                          // color for the error prefix
       LABEL_COLOR: "error",                           // color for the error label (ERROR on the 2nd line, the status line)
     },
     TOOL_BRANCH: {
-      PREFIX: "└─",                                   // icon use right before the status line
-      COLOR: "separator",                             // color for the branch icon
+      PREFIX: "  ⎿ ",                                 // icon use right before the status line
+      COLOR: "dim",                                   // color for the branch icon
     },
     GENERAL: {
       TITLE_COLOR: "toolTitle",                       // color for tool titles (bash, ls, read, write, etc.)
-      SUMMARY_COLOR: "dim",                           // color for tool summary (1st line, right after the title)
+      SUMMARY_COLOR: "text",                          // color for tool arguments (1st line, inside the parentheses)
       COUNT_COLOR: "muted",                           // color for tool counts (e.g., "Tool 1 of 3")
       EXPAND_HINT_COLOR: "dim",                       // color for hints about expanding tool outputs
       OUTPUT_COLOR: "dim",                            // color for tool outputs
       MAX_EXPANDED_LINES: 40,                         // max lines shown when a tool result is expanded
+      COLLAPSED_PREVIEW_LINES: 3,                     // output lines previewed while a result is collapsed (Bash, Write, custom tools)
       MORE_COLOR: "muted",                            // color for the separator text
       MORE_BG_COLOR: "separator",                     // background color for the separator line (empty = no bg)
       IS_THEME_BACKGROUND_VISIBLE: false,             // whether to apply theme background color to tool outputs
       VERTICAL_PADDING: 0,                            // paddingY for tool content box (0 = compact, core default = 1)
-      HORIZONTAL_PADDING: 3,                          // paddingX for tool content box (1 = default, controls left+right indent)
+      HORIZONTAL_PADDING: 1,                          // paddingX for tool content box (1 = default, controls left+right indent)
       DIFF_ADDED_COLOR: "toolDiffAdded",              // color for diff added lines
       DIFF_REMOVED_COLOR: "toolDiffRemoved",          // color for diff removed lines
       DIFF_CONTEXT_COLOR: "toolDiffContext",          // color for diff context lines
@@ -176,6 +177,7 @@ export const CONFIG = {
       expandHintColor: userConfig.tools?.general?.expandHintColor ?? DEFAULT_CONFIG.TOOLS.GENERAL.EXPAND_HINT_COLOR,
       outputColor: userConfig.tools?.general?.outputColor ?? DEFAULT_CONFIG.TOOLS.GENERAL.OUTPUT_COLOR,
       maxExpandedLines: userConfig.tools?.general?.maxExpandedLines ?? DEFAULT_CONFIG.TOOLS.GENERAL.MAX_EXPANDED_LINES,
+      collapsedPreviewLines: userConfig.tools?.general?.collapsedPreviewLines ?? DEFAULT_CONFIG.TOOLS.GENERAL.COLLAPSED_PREVIEW_LINES,
       moreColor: userConfig.tools?.general?.moreColor ?? DEFAULT_CONFIG.TOOLS.GENERAL.MORE_COLOR,
       moreBgColor: userConfig.tools?.general?.moreBgColor ?? DEFAULT_CONFIG.TOOLS.GENERAL.MORE_BG_COLOR,
       isThemeBackgroundVisible: userConfig.tools?.general?.isThemeBackgroundVisible ?? DEFAULT_CONFIG.TOOLS.GENERAL.IS_THEME_BACKGROUND_VISIBLE,

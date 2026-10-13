@@ -1,9 +1,8 @@
 import { Markdown } from "@earendil-works/pi-tui";
 import { CONFIG } from "../config.js";
-import { getVisibleWidth, currentTheme, applyColor, getExpandToggleKey, fitLineToWidth, wrapAnsiToWidth } from "../utils.js";
-import { branchLine, indentLine } from "./tool-shared.js";
+import { currentTheme, applyColor, fitLineToWidth, wrapAnsiToWidth } from "../utils.js";
+import { branchLine, expandHint, indentLine, indentWidth } from "./tool-shared.js";
 
-const BRANCH_INDENT_WIDTH = getVisibleWidth(CONFIG.tools.toolBranch.prefix) + 1;
 const HPAD = () => CONFIG.tools.general.horizontalPadding;
 const VPAD = () => CONFIG.tools.general.verticalPadding;
 
@@ -67,11 +66,11 @@ export function createSkillInvocationMessage(
     const t = currentTheme!;
     const contentWidth = innerWidth(width);
 
-    // Line 1: " ● Skill  skill-name"
+    // Line 1: "● Skill(skill-name)"
     const dot = applyColor(t, CONFIG.skills.prefixColor, CONFIG.skills.prefix);
     const label = applyColor(t, CONFIG.skills.titleColor, t.bold("Skill"));
     const name = applyColor(t, CONFIG.skills.nameColor, skillName);
-    const header = `${dot} ${label} ${name}`;
+    const header = `${dot} ${label}(${name})`;
 
     // Line 2: branch + status
     const loaded = applyColor(t, CONFIG.skills.labelColor, "Loaded");
@@ -79,7 +78,7 @@ export function createSkillInvocationMessage(
     if (!expanded) {
       cachedWidth = width;
       cachedExpanded = expanded;
-      const hint = applyColor(t, CONFIG.skills.expandHintColor, ` • ${getExpandToggleKey()} to expand`);
+      const hint = expandHint(t, CONFIG.skills.expandHintColor);
       cachedLines = addPadding(["", header, branchLine(loaded, t) + hint], width);
       return cachedLines;
     }
@@ -87,8 +86,9 @@ export function createSkillInvocationMessage(
     // Expanded: header + branch + indented markdown content
     const lines: string[] = ["", header, branchLine(loaded, t)];
 
-    if (contentWidth > BRANCH_INDENT_WIDTH) {
-      const mdLines = md.render(Math.max(1, contentWidth - BRANCH_INDENT_WIDTH));
+    const branchIndent = indentWidth();
+    if (contentWidth > branchIndent) {
+      const mdLines = md.render(Math.max(1, contentWidth - branchIndent));
       for (const line of mdLines) {
         lines.push(indentLine(applyColor(t, CONFIG.skills.outputColor, line)));
       }

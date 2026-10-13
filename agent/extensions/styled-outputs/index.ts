@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Theme, AssistantMessageComponent, UserMessageComponent, ToolExecutionComponent, SkillInvocationMessageComponent, CustomMessageComponent, BashExecutionComponent, createReadToolDefinition, createBashToolDefinition, createEditToolDefinition, createWriteToolDefinition, createLsToolDefinition, createGrepToolDefinition, createFindToolDefinition, truncateTail, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, keyText } from "@earendil-works/pi-coding-agent";
 import { Box, Markdown, Text } from "@earendil-works/pi-tui";
-import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, toolPrefix, errorPrefix, fitLineToWidth } from "./utils.js";
+import { PATCH_FLAG, setCurrentTheme, currentTheme, applyColor, fitLineToWidth } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { createAssistantMessage } from "./components/assistant-message.js";
 import { createThinkingMessage } from "./components/thinking-message.js";
@@ -19,7 +19,7 @@ import {
 import { renderFallbackCall, renderFallbackResult } from "./components/fallback-renderer.js";
 import { createSkillInvocationMessage } from "./components/skill-message.js";
 import { createCustomMessage } from "./components/custom-message.js";
-import { branchLine, doneLabel, errorLabel, expandHint, startToolSpinnerSession, stopToolSpinners } from "./components/tool-shared.js";
+import { branchLine, errorLabel, indentLine, onBranch, previewLines, startToolSpinnerSession, statusLine, stopToolSpinners } from "./components/tool-shared.js";
 import { cachedExpandedLines } from "./components/output-cache.js";
 
 export default function styledOutputs(pi: ExtensionAPI) {
@@ -381,57 +381,35 @@ export default function styledOutputs(pi: ExtensionAPI) {
         cc.addChild(this._styledText);
       }
 
-      // --- Header: <prefix-icon> <Command|Shell> <dim-command> ---
-      const typeLabel = this._excludeFromContext ? "Shell" : "Command";
-      const labelText = applyColor(t, bc.titleColor, t.bold(typeLabel));
-      const cmdText = applyColor(t, tc.general.summaryColor, ` ${this.command}`);
+      // --- Header: "! cmd" (Command, in context) or "!! cmd" (Shell, excluded) ---
+      const typeLabel = this._excludeFromContext ? "!!" : "!";
+      const headerLine = `${applyColor(t, bc.titleColor, t.bold(typeLabel))}${applyColor(t, tc.general.summaryColor, ` ${this.command}`)}`;
 
-      let headerLine: string;
+      // --- Output: collapsed preview or full (trimmed) listing ---
+      const body = nonEmptyCount === 0 ? ""
+        : this.expanded ? cachedExpandedLines(availableLines, "tail", t) : previewLines(availableLines, t);
+
+      // --- Status on the branch; completed output starts on the branch itself ---
+      let status: string;
       if (this.status === "running") {
         const frame = (this._spinnerFrame as number) ?? 0;
         const spinnerChar = applyColor(t, tc.toolSpinnerPrefix.color, SPINNER_FRAMES[frame % SPINNER_FRAMES.length]);
-        headerLine = `${spinnerChar} ${labelText}${cmdText}`;
-      } else if (this.status === "complete") {
-        headerLine = `${toolPrefix(t)}${labelText}${cmdText}`;
-      } else {
-        headerLine = `${errorPrefix(t)}${labelText}${cmdText}`;
-      }
-
-      // --- Status footer ---
-      let statusLine: string;
-      if (this.status === "running") {
-        statusLine = branchLine(
-          applyColor(t, tc.general.outputColor, "Running..."),
-          t
-        );
+        status = branchLine(`${spinnerChar} ${applyColor(t, tc.general.outputColor, "Running…")}`, t) + body;
       } else if (this.status === "cancelled") {
-        statusLine = branchLine(applyColor(t, tc.toolError.labelColor, "Cancelled"), t);
+        status = branchLine(applyColor(t, tc.toolError.labelColor, "Cancelled"), t) + body;
       } else if (this.status === "error") {
-        statusLine = errorLabel(t);
-        if (!this.expanded && nonEmptyCount > 0) {
-          statusLine += expandHint(t);
-        }
+        status = errorLabel(t, typeof this.exitCode === "number" ? `Exit ${this.exitCode}` : undefined) + body;
       } else {
-        const count = nonEmptyCount > 0
-          ? { label: "lines" as const, value: nonEmptyCount }
-          : undefined;
-        const done = doneLabel(t, count);
-        statusLine = (!this.expanded && nonEmptyCount > 0) ? done + expandHint(t) : done;
+        status = body ? onBranch(body, t) : statusLine("(No content)", t);
       }
 
-      // --- Assemble: header, then status, then output (if expanded) ---
-      let display = "\n" + headerLine + "\n" + statusLine;
-
-      if (this.expanded && nonEmptyCount > 0) {
-        display += cachedExpandedLines(availableLines, "tail", t);
-      }
+      let display = "\n" + headerLine + "\n" + status;
 
       // Truncation warning
       const wasTruncated = (this.truncationResult as any)?.truncated || contextTruncation.truncated;
       if (wasTruncated && this.fullOutputPath) {
-        display += "\n" + branchLine(
+        display += "\n" + indentLine(
           applyColor(t, tc.toolError.labelColor, `Output truncated. Full output: ${this.fullOutputPath}`),
-          t
         );
       }
 

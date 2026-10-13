@@ -5,39 +5,39 @@
     "color": "text"
   },
   "userMessage": {
-    "prefix": "❯",
-    "color": "accent",
+    "prefix": ">",
+    "color": "dim",
     "bodyColor": "text",
     "isThemeBackgroundVisible": true
   },
   "thinkingMessage": {
-    "prefix": "✽",
-    "prefixColor": "accent",
-    "label": "Thinking:",
+    "prefix": "✻",
+    "prefixColor": "muted",
+    "label": "Thinking…",
     "labelColor": "muted",
-    "isLabelVisible": false,
+    "isLabelVisible": true,
     "messageColor": "dim"
   },
   "skills": {
-    "prefix": "✓",
-    "prefixColor": "accent",
+    "prefix": "●",
+    "prefixColor": "success",
     "titleColor": "toolTitle",
-    "nameColor": "dim",
-    "labelColor": "success",
+    "nameColor": "text",
+    "labelColor": "text",
     "expandHintColor": "dim",
     "outputColor": "dim"
   },
   "customMessages": {
-    "prefix": "✓",
-    "prefixColor": "accent",
+    "prefix": "●",
+    "prefixColor": "success",
     "titleColor": "toolTitle",
-    "nameColor": "dim",
-    "labelColor": "success",
+    "nameColor": "text",
+    "labelColor": "text",
     "expandHintColor": "dim",
     "outputColor": "dim"
   },
   "bashExecution": {
-    "titleColor": "toolTitle"
+    "titleColor": "bashMode"
   },
   "tools": {
     "toolSpinnerPrefix": {
@@ -45,31 +45,32 @@
       "color": "muted"
     },
     "toolSuccess": {
-      "prefix": "✓",
+      "prefix": "●",
       "prefixColor": "success",
-      "labelColor": "success"
+      "labelColor": "text"
     },
     "toolError": {
-      "prefix": "✗",
+      "prefix": "●",
       "prefixColor": "error",
       "labelColor": "error"
     },
     "toolBranch": {
-      "prefix": "└─",
-      "color": "separator"
+      "prefix": "  ⎿ ",
+      "color": "dim"
     },
     "general": {
       "titleColor": "toolTitle",
-      "summaryColor": "dim",
+      "summaryColor": "text",
       "countColor": "muted",
       "expandHintColor": "dim",
       "outputColor": "dim",
       "maxExpandedLines": 40,
+      "collapsedPreviewLines": 3,
       "moreColor": "muted",
       "moreBgColor": "separator",
       "isThemeBackgroundVisible": false,
       "verticalPadding": 0,
-      "horizontalPadding": 3,
+      "horizontalPadding": 1,
       "diffAddedColor": "toolDiffAdded",
       "diffRemovedColor": "toolDiffRemoved",
       "diffContextColor": "toolDiffContext",
