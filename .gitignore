@@ -24,3 +24,4 @@ agent/cache/
 agent/configs/*
 agent/trust.json
 /PUBLISHING.md
+.worktrees/
