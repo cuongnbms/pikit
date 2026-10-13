@@ -67,7 +67,7 @@
       "maxExpandedLines": 40,
       "collapsedPreviewLines": 3,
       "moreColor": "muted",
-      "moreBgColor": "separator",
+      "moreBgColor": "borderMuted",
       "isThemeBackgroundVisible": false,
       "verticalPadding": 0,
       "horizontalPadding": 1,

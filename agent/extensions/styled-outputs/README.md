@@ -149,7 +149,7 @@ These apply to all tool types unless overridden by a group.
 | `tools.general.maxExpandedLines` | `number` | `40` | Max lines shown when a tool result is expanded (also trims inline Edit diffs) |
 | `tools.general.collapsedPreviewLines` | `number` | `3` | Output lines previewed while a Bash, Write or custom tool result is collapsed (`0` = hint only) |
 | `tools.general.moreColor` | `string` | `"muted"` | Colour for "more" separator text |
-| `tools.general.moreBgColor` | `string` | `"separator"` | Background colour for the "more" separator |
+| `tools.general.moreBgColor` | `string` | `"borderMuted"` | Background colour for the "more" separator |
 | `tools.general.isThemeBackgroundVisible` | `boolean` | `false` | Apply theme background behind tool blocks, skill invocations, and custom messages |
 | `tools.general.verticalPadding` | `number` | `0` | Vertical padding inside tool content boxes (0 = compact, core default = 1) |
 | `tools.general.horizontalPadding` | `number` | `1` | Horizontal padding inside tool content boxes (left+right indent; core default = 1) |
@@ -186,7 +186,7 @@ Example — give custom tools a different title colour and expanded line limit:
 
 Every colour field accepts either:
 
-- A **pi theme token** — e.g. `"accent"`, `"dim"`, `"muted"`, `"success"`, `"error"`, `"warning"`, `"separator"`, `"toolTitle"`, `"toolDiffAdded"`, `"toolDiffRemoved"`, `"toolDiffContext"`
+- A **pi theme token** — e.g. `"accent"`, `"dim"`, `"muted"`, `"success"`, `"error"`, `"warning"`, `"borderMuted"`, `"toolTitle"`, `"toolDiffAdded"`, `"toolDiffRemoved"`, `"toolDiffContext"`
 - A **hex colour** — e.g. `"#ff6347"`, `"#c07898"`
 
 Theme tokens adapt to your active theme automatically.

@@ -22,7 +22,7 @@ export interface SpinnersConfig {
 
 export const DEFAULT_THEME_TOKENS: ThemeTokens = {
   verb: "accent",
-  separator: "separator",
+  separator: "borderMuted",
   status: "muted",
   separatorIcon: "└─",
 };

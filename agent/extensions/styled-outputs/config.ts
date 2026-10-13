@@ -84,7 +84,7 @@ export const DEFAULT_CONFIG = {
       MAX_EXPANDED_LINES: 40,                         // max lines shown when a tool result is expanded
       COLLAPSED_PREVIEW_LINES: 3,                     // output lines previewed while a result is collapsed (Bash, Write, custom tools)
       MORE_COLOR: "muted",                            // color for the separator text
-      MORE_BG_COLOR: "separator",                     // background color for the separator line (empty = no bg)
+      MORE_BG_COLOR: "borderMuted",                    // background color for the separator line (empty = no bg)
       IS_THEME_BACKGROUND_VISIBLE: false,             // whether to apply theme background color to tool outputs
       VERTICAL_PADDING: 0,                            // paddingY for tool content box (0 = compact, core default = 1)
       HORIZONTAL_PADDING: 1,                          // paddingX for tool content box (1 = default, controls left+right indent)
