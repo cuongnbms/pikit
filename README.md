@@ -26,7 +26,7 @@ agent/
 └── extensions/
     ├── chat-input/              # Unicode box border around the main chat input editor
     ├── footer/                  # Status bar with git, tokens, cost, context
-    ├── spinners/                # Rotating spinner verbs while the agent thinks
+    ├── spinners/                # Stable spinner labels while the agent thinks
     ├── startup/                 # Welcome header shown at session start
     └── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
 ```
@@ -136,7 +136,7 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 * **styled-outputs** — Claude Code–style transcript: `● Tool(args)` headers, `⎿` status rows, inline diffs, collapsed output previews, and expandable sections. → [`README`](agent/extensions/styled-outputs/README.md)
 * **footer** — A dense, customized status line detailing active models, token metrics, live run costs, and current git state. Supports Nerd Fonts and ASCII fallbacks. → [`README`](agent/extensions/footer/README.md)
 * **chat-input** — Draws a stylized, isolated Unicode frame around your active terminal prompt line while preserving all underlying editing shortcuts. → [`README`](agent/extensions/chat-input/README.md)
-* **spinners** — Trades static loader indicators for dynamic, timed thinking states and live token accumulators. → [`README`](agent/extensions/spinners/README.md)
+* **spinners** — Animated stars with stable per-turn labels, elapsed time, and live token estimates. → [`README`](agent/extensions/spinners/README.md)
 * **startup** — Displays a concise diagnostic dashboard on boot, mapping out active plugins, server states, and shortcut reminders. → [`README`](agent/extensions/startup/README.md)
 
 ---

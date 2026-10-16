@@ -1,6 +1,6 @@
 # spinners
 
-Replaces the default **Thinking** verb with Claude-style random alternatives from a curated list, cycling periodically with a typewriter reveal.
+Replaces the default **Thinking** verb with a random alternative from a curated list. The complete verb appears immediately and stays fixed throughout each turn, keeping the elapsed-time counter in a stable position.
 
 
 Default working indicator (single line, animated stars):
@@ -15,8 +15,7 @@ Token counts are estimates from streamed text, not billed usage. Indicator and m
 
 - **Curated verb list** — Unique alternatives to the default thinking message
 - **Claude-style indicator** — Animated star glyphs with inline elapsed time and token estimates
-- **Typewriter animation** — Character-by-character reveal
-- **Auto-cycling** — Rotates through verbs while model works
+- **Stable label** — Displays the full verb immediately, without character-by-character animation or mid-turn cycling
 - **Live status** — Shows elapsed time and estimated token count
 - **Theme-aware colors** — Uses pi.dev theme colors with fallbacks
 - **Keyboard shortcut hint** — Shows how to expand thinking blocks
@@ -75,7 +74,7 @@ export const VERBS: readonly string[] = [
 
 ## How It Works
 
-1. **Turn starts** → Picks random verb, types it out character-by-character
-2. **While working** → Cycles to new verb every 2.5 seconds
-3. **Status updates** → Shows elapsed time and estimated token count (when tokens are being streamed)
+1. **Turn starts** → Picks a random verb and displays it in full
+2. **While working** → Keeps the verb fixed; only the star indicator animates
+3. **Status updates** → Refreshes elapsed time every second, including between streamed text chunks, and updates estimated token counts as text arrives
 

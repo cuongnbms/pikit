@@ -37,12 +37,12 @@ async function fixture(t, hasUI = true) {
   return { messages, indicators, emit };
 }
 
-test("working status uses one Claude-style line during typewriter and token streaming", async (t) => {
+test("working status shows the complete verb immediately and uses one line during streaming", async (t) => {
   const f = await fixture(t);
   t.mock.method(Math, "random", () => 0);
   t.mock.timers.enable({ apis: ["Date", "setInterval", "setTimeout"], now: 100000 });
   await f.emit("turn_start");
-  assert.equal(f.messages.at(-1), "A (0s)");
+  assert.equal(f.messages.at(-1), "Accomplishing… (0s)");
   t.mock.timers.tick(1000);
   assert.equal(f.messages.at(-1), "Accomplishing… (1s)");
   await f.emit("message_update", { assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
@@ -52,6 +52,32 @@ test("working status uses one Claude-style line during typewriter and token stre
   } });
   assert.equal(f.messages.at(-1), "Accomplishing… (38s · ↓ 1,234 tokens)");
   assert.ok(f.messages.every((message) => !message.includes("\n") && !message.includes("└")));
+});
+
+test("working verb stays fixed while elapsed time advances throughout a turn", async (t) => {
+  const f = await fixture(t);
+  let randomValue = 0;
+  t.mock.method(Math, "random", () => randomValue);
+  t.mock.timers.enable({ apis: ["Date", "setInterval", "setTimeout"], now: 100000 });
+  await f.emit("turn_start");
+  randomValue = 0.5;
+  for (let second = 1; second <= 10; second++) {
+    t.mock.timers.tick(1000);
+    assert.equal(f.messages.at(-1), `Accomplishing… (${second}s)`);
+  }
+});
+
+test("elapsed time keeps refreshing between streamed text chunks", async (t) => {
+  const f = await fixture(t);
+  t.mock.method(Math, "random", () => 0);
+  t.mock.timers.enable({ apis: ["Date", "setInterval", "setTimeout"], now: 100000 });
+  await f.emit("turn_start");
+  await f.emit("message_update", { assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+  await f.emit("message_update", { assistantMessageEvent: {
+    type: "text_delta", contentIndex: 0, delta: "test",
+  } });
+  t.mock.timers.tick(1000);
+  assert.equal(f.messages.at(-1), "Accomplishing… (1s · ↓ 1 tokens)");
 });
 
 test("working indicator animates Claude-style stars and restores host defaults on turn end", async (t) => {

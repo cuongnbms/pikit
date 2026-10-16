@@ -1,8 +1,8 @@
 /**
  * Spinners extension for pi.dev.
  *
- * Replaces the default "Thinking" verb with random alternatives from a curated list,
- * cycling every 2.5 seconds with a typewriter-style character reveal animation.
+ * Replaces the default "Thinking" verb with a random alternative from a curated list.
+ * Shows the complete verb immediately and keeps it fixed throughout each turn.
  */
 
 import type {
@@ -18,8 +18,6 @@ import { pickVerb } from "./verbs.js";
 
 const { themeTokens } = loadConfig();
 
-const CYCLE_INTERVAL_MS = 2500;
-const TYPEWRITER_MS = 42;
 const REFRESH_INTERVAL_MS = 1000;
 const TOKENS_PER_CHAR = 4; // Rough estimate: 1 token ≈ 4 characters
 const WORKING_FRAMES = ["·", "✢", "✳", "✶", "✻", "✽"];
@@ -95,8 +93,6 @@ function textBlockLengths(content: unknown): number[] {
 }
 
 export default function spinners(pi: ExtensionAPI) {
-  let cycleTimer: ReturnType<typeof setInterval> | null = null;
-  let typeTimer: ReturnType<typeof setInterval> | null = null;
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   let currentVerb = "";
   let agentStartTime = 0;
@@ -109,8 +105,6 @@ export default function spinners(pi: ExtensionAPI) {
    * Stops all active timers.
    */
   function stopAllTimers(): void {
-    if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; }
-    if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
     if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   }
 
@@ -141,11 +135,10 @@ export default function spinners(pi: ExtensionAPI) {
   /**
    * Builds complete working message with verb and status.
    * @param ctx - Extension context with UI
-   * @param verb - Complete or partially revealed verb label
    */
-  function buildWorkingMessage(ctx: ExtensionContext, verb = `${currentVerb}…`): string {
+  function buildWorkingMessage(ctx: ExtensionContext): string {
     const parts = buildStatusParts();
-    const verbText = colorize(ctx.ui.theme, themeTokens.verb, verb);
+    const verbText = colorize(ctx.ui.theme, themeTokens.verb, `${currentVerb}…`);
     const separator = colorize(ctx.ui.theme, themeTokens.separator, themeTokens.separatorIcon);
     const status = parts.map(part => colorize(ctx.ui.theme, themeTokens.status, part))
       .join(` ${separator} `);
@@ -155,14 +148,11 @@ export default function spinners(pi: ExtensionAPI) {
   /**
    * Updates the working message in the UI.
    * @param ctx - Extension context with UI
-   * @param verb - Optional complete or partially revealed verb label
    */
-  function syncWorkingMessage(ctx: ExtensionContext, verb?: string): void {
+  function syncWorkingMessage(ctx: ExtensionContext): void {
     if (!ctx.hasUI) return;
-    // Skip if typewriter animation is in progress to avoid flicker
-    if (typeTimer) return;
     try {
-      ctx.ui.setWorkingMessage(buildWorkingMessage(ctx, verb));
+      ctx.ui.setWorkingMessage(buildWorkingMessage(ctx));
     } catch {
       // noop
     }
@@ -218,59 +208,6 @@ export default function spinners(pi: ExtensionAPI) {
     responseLength = content ? estimateResponseLength(content) : 0;
   }
 
-  /**
-   * Animates verb with typewriter effect.
-   * @param ctx - Extension context with UI
-   * @param verb - Verb to animate
-   */
-  function typeVerb(ctx: ExtensionContext, verb: string): void {
-    if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
-    const fullVerb = verb + "…";
-    const chars = fullVerb.split("");
-    let i = 1;
-
-    // Share the one-line format with normal status refreshes.
-    const buildTypeMessage = (partial: string) => buildWorkingMessage(ctx, partial);
-
-    try {
-      ctx.ui.setWorkingMessage(buildTypeMessage(chars[0]));
-    } catch {
-      // noop
-    }
-
-    typeTimer = setInterval(() => {
-      i++;
-      const partial = chars.slice(0, i).join("");
-      try {
-        ctx.ui.setWorkingMessage(buildTypeMessage(partial));
-      } catch {
-        // noop
-      }
-      if (i >= chars.length) {
-        if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
-        syncWorkingMessage(ctx);
-      }
-    }, TYPEWRITER_MS);
-  }
-
-  /**
-   * Starts verb cycling timer.
-   * @param ctx - Extension context with UI
-   */
-  function startCycling(ctx: ExtensionContext): void {
-    currentVerb = pickVerb();
-    typeVerb(ctx, currentVerb);
-    cycleTimer = setInterval(() => {
-      let next = pickVerb();
-      while (next === currentVerb) next = pickVerb();
-      currentVerb = next;
-      if (activeCtx?.hasUI) {
-        if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
-        typeVerb(activeCtx, currentVerb);
-      }
-    }, CYCLE_INTERVAL_MS);
-  }
-
   // Hidden thinking block hint
   pi.on("session_start", async (_event: SessionStartEvent, ctx: ExtensionContext) => {
     if (!ctx.hasUI) return;
@@ -283,14 +220,15 @@ export default function spinners(pi: ExtensionAPI) {
     turnStartTime = Date.now();
     if (!agentStartTime) agentStartTime = turnStartTime;
     if (!ctx.hasUI) return;
-    if (cycleTimer || typeTimer) return;
+    if (refreshTimer) return;
 
     ctx.ui.setWorkingIndicator({
       frames: WORKING_FRAMES.map(frame => colorize(ctx.ui.theme, themeTokens.verb, frame)),
       intervalMs: 120,
     });
     resetResponseTracking();
-    startCycling(ctx);
+    currentVerb = pickVerb();
+    syncWorkingMessage(ctx);
     startRefreshLoop(ctx);
   });
 
@@ -301,7 +239,6 @@ export default function spinners(pi: ExtensionAPI) {
       resetResponseTracking();
     } else if (evt.type === "text_start") {
       setResponseTextBlockLength(evt.contentIndex, 0);
-      stopAllTimers();
     } else if (evt.type === "text" || evt.type === "text_delta") {
       const prev = responseTextBlockLengths[evt.contentIndex] ?? 0;
       setResponseTextBlockLength(
@@ -318,7 +255,7 @@ export default function spinners(pi: ExtensionAPI) {
       resetResponseTracking(evt.message?.content);
     }
 
-    if (!typeTimer && activeCtx) syncWorkingMessage(activeCtx);
+    if (activeCtx) syncWorkingMessage(activeCtx);
   });
 
   pi.on("turn_end", async (_event: TurnEndEvent, ctx: ExtensionContext) => {
