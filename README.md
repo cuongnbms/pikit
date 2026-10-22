@@ -28,6 +28,7 @@ agent/
     ├── footer/                  # Status bar with git, tokens, cost, context
     ├── spinners/                # Stable spinner labels while the agent thinks
     ├── startup/                 # Welcome header shown at session start
+    ├── task-title/              # Terminal tab title from the session's first task
     └── styled-outputs/          # Custom styled rendering for all message types (tools, diffs, thinking, skills)
 ```
 
@@ -138,6 +139,7 @@ The same file also carries an `allowBuilds` block — pnpm blocks dependency ins
 * **chat-input** — Draws a stylized, isolated Unicode frame around your active terminal prompt line while preserving all underlying editing shortcuts. → [`README`](agent/extensions/chat-input/README.md)
 * **spinners** — Animated stars with stable per-turn labels, elapsed time, and live token estimates. → [`README`](agent/extensions/spinners/README.md)
 * **startup** — Displays a concise diagnostic dashboard on boot, mapping out active plugins, server states, and shortcut reminders. → [`README`](agent/extensions/startup/README.md)
+* **task-title** — Titles terminal tabs from the session's first task, then refines the title with the current model without blocking the agent. Named sessions (`/name`) keep Pi's own title. → [`README`](agent/extensions/task-title/README.md)
 
 ---
 
