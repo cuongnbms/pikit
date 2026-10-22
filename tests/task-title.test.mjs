@@ -1,7 +1,20 @@
-import test from "node:test"
+import test, { after } from "node:test"
 import assert from "node:assert/strict"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 import install, { cleanModelTitle, deriveTitle, firstPrompt, firstPromptTitle } from "../agent/extensions/task-title/index.ts"
+
+// Keep personal configuration out of regression tests.
+const previousAgentDir = process.env.PI_CODING_AGENT_DIR
+const testAgentDir = mkdtempSync(join(tmpdir(), "pikit-title-default-"))
+process.env.PI_CODING_AGENT_DIR = testAgentDir
+after(() => {
+  if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR
+  else process.env.PI_CODING_AGENT_DIR = previousAgentDir
+  rmSync(testAgentDir, { recursive: true, force: true })
+})
 
 test("keeps a short prompt as the title", () => {
   assert.equal(deriveTitle("chạy tất cả lên để test"), "chạy tất cả lên để test")
@@ -108,23 +121,41 @@ test("keeps the whole prompt, untruncated, for the model to read", () => {
   assert.equal(firstPrompt(ctxWith([userEntry(prompt)])), prompt)
 })
 
+async function withConfig(raw, run) {
+  const dir = mkdtempSync(join(tmpdir(), "pikit-title-"))
+  const previous = process.env.PI_CODING_AGENT_DIR
+  process.env.PI_CODING_AGENT_DIR = dir
+  mkdirSync(join(dir, "configs"))
+  if (raw !== undefined) writeFileSync(join(dir, "configs", "task-title.json"), raw)
+  try { await run() } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR
+    else process.env.PI_CODING_AGENT_DIR = previous
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 const fakePi = () => {
   const handlers = {}
-  const pi = { on: (event, handler) => { handlers[event] = handler } }
+  const pi = { getThinkingLevel: () => "high", on: (event, handler) => { handlers[event] = handler } }
   return { pi, fire: (event, ctx, payload) => handlers[event]?.({ type: event, ...payload }, ctx) }
 }
 
 const fakeCtx = (entries, { sessionName, answer, fail } = {}) => {
   const titles = []
   const calls = []
+  const warnings = []
   return {
+    warnings,
     titles,
     calls,
     mode: "tui",
     model: { provider: "xai", id: "grok-4.6" },
-    ui: { setTitle: (title) => titles.push(title) },
+    ui: { setTitle: (title) => titles.push(title), notify: (message, level) => warnings.push({ message, level }) },
     sessionManager: { getEntries: () => entries, getSessionName: () => sessionName },
     modelRegistry: {
+      streamSimple(model, context, options) {
+        return { result: () => this.complete(model, context, options) }
+      },
       complete: async (model, context, options) => {
         calls.push({ model, context, options })
         if (fail) throw new Error("provider down")
@@ -179,13 +210,15 @@ test("asks the session's own model", async () => {
   assert.deepEqual(ctx.calls[0].model, { provider: "xai", id: "grok-4.6" })
 })
 
-test("keeps the prompt title when the model call fails", async () => {
+test("keeps the prompt title and warns when the model call fails", async () => {
   const { pi, fire } = fakePi()
   install(pi)
   const ctx = fakeCtx([userEntry("dựng lại pipeline ingest")], { fail: true })
   fire("agent_start", ctx)
   await settle()
   assert.deepEqual(ctx.titles, ["dựng lại pipeline ingest"])
+  assert.equal(ctx.warnings.length, 1)
+  assert.match(ctx.warnings[0].message, /Task-title.*provider down/)
 })
 
 test("keeps the prompt title when the model answers with nothing usable", async () => {
@@ -195,6 +228,8 @@ test("keeps the prompt title when the model answers with nothing usable", async 
   fire("agent_start", ctx)
   await settle()
   assert.deepEqual(ctx.titles, ["dựng lại pipeline ingest"])
+  assert.equal(ctx.warnings.length, 1)
+  assert.match(ctx.warnings[0].message, /no usable title/i)
 })
 
 test("asks the model only once per session", async () => {
@@ -311,13 +346,13 @@ test("keeps the title of the first input when a second one arrives", async () =>
   assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
 })
 
-test("asks for a title without letting the model think at length", async () => {
+test("inherits the session effort through the provider-neutral API", async () => {
   const { pi, fire } = fakePi()
   install(pi)
   const ctx = fakeCtx([])
   fire("input", ctx, { text: "dựng lại pipeline ingest", source: "interactive" })
   await settle()
-  assert.equal(ctx.calls[0].options.reasoningEffort, "minimal")
+  assert.equal(ctx.calls[0].options.reasoning, "high")
 })
 
 test("shutdown cancels the model request and discards queued title updates", async () => {
@@ -389,4 +424,150 @@ test("prefers the session's own first prompt over a later input", async () => {
   await settle()
   assert.equal(ctx.titles[0], "dựng lại pipeline ingest")
   assert.equal(ctx.calls[0].context.messages[0].content[0].text, "dựng lại pipeline ingest")
+})
+
+test("uses the configured title model and effort without changing the session", async () => {
+  await withConfig(JSON.stringify({ provider: "other", model: "title-model", effort: "low" }), async () => {
+    const { pi, fire } = fakePi()
+    const ctx = fakeCtx([])
+    const titleModel = { provider: "other", id: "title-model" }
+    ctx.modelRegistry.find = (provider, id) => provider === "other" && id === "title-model" ? titleModel : undefined
+    install(pi)
+    fire("input", ctx, { text: "my task", source: "interactive" })
+    await settle()
+    assert.deepEqual(ctx.calls[0].model, titleModel)
+    assert.equal(ctx.calls[0].options.reasoning, "low")
+    assert.deepEqual(ctx.model, { provider: "xai", id: "grok-4.6" })
+    assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+  })
+})
+
+test("an unknown configured model warns and discards its effort override", async () => {
+  await withConfig('{"provider":"missing","model":"gone","effort":"low"}', async () => {
+    const { pi, fire } = fakePi()
+    const ctx = fakeCtx([])
+    ctx.modelRegistry.find = () => undefined
+    install(pi)
+    fire("input", ctx, { text: "my task", source: "interactive" })
+    await settle()
+    assert.equal(ctx.warnings.length, 1)
+    assert.match(ctx.warnings[0].message, /missing\/gone/)
+    assert.deepEqual(ctx.calls[0].model, ctx.model)
+    assert.equal(ctx.calls[0].options.reasoning, "high")
+    assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+  })
+})
+
+test("a resolved provider error warns and never installs its partial text as title", async () => {
+  const { pi, fire } = fakePi()
+  const ctx = fakeCtx([])
+  ctx.modelRegistry.complete = async () => ({
+    stopReason: "error", errorMessage: "Unsupported reasoning effort",
+    content: [{ type: "text", text: "Incomplete output" }],
+  })
+  install(pi)
+  fire("input", ctx, { text: "my task", source: "interactive" })
+  await settle()
+  assert.deepEqual(ctx.titles, ["my task"])
+  assert.equal(ctx.warnings.length, 1)
+  assert.match(ctx.warnings[0].message, /Unsupported reasoning effort/)
+})
+
+test("an aborted title response warns and keeps the prompt instead of partial text", async () => {
+  const { pi, fire } = fakePi()
+  const ctx = fakeCtx([])
+  ctx.modelRegistry.complete = async () => ({
+    stopReason: "aborted", errorMessage: "Title request timed out",
+    content: [{ type: "text", text: "Partial title" }],
+  })
+  install(pi)
+  fire("input", ctx, { text: "my task", source: "interactive" })
+  await settle()
+  assert.deepEqual(ctx.titles, ["my task"])
+  assert.equal(ctx.warnings.length, 1)
+  assert.match(ctx.warnings[0].message, /timed out/)
+})
+
+test("errors from shut down or replaced sessions never emit stale warnings", async () => {
+  for (const replacement of [false, true]) {
+    const { pi, fire } = fakePi()
+    const old = fakeCtx([])
+    let rejectOld
+    old.modelRegistry.complete = () => new Promise((_resolve, reject) => { rejectOld = reject })
+    install(pi)
+    fire("input", old, { text: "old task", source: "interactive" })
+    await settle()
+    const current = fakeCtx([userEntry("new task")], { answer: "New title" })
+    if (replacement) fire("session_start", current)
+    else fire("session_shutdown", old)
+    rejectOld(new Error("Old provider error"))
+    await settle()
+    assert.deepEqual(old.titles, ["old task"])
+    assert.deepEqual(old.warnings, [])
+    assert.deepEqual(current.warnings, [])
+    if (replacement) assert.equal(current.titles.at(-1), "New title")
+  }
+})
+
+test("model-only config inherits live effort, including off", async () => {
+  await withConfig('{"provider":"other","model":"title-model"}', async () => {
+    for (const [effort, expected] of [["medium", "medium"], ["off", undefined]]) {
+      const { pi, fire } = fakePi()
+      pi.getThinkingLevel = () => effort
+      const ctx = fakeCtx([])
+      ctx.modelRegistry.find = () => ({ provider: "other", id: "title-model" })
+      install(pi)
+      fire("input", ctx, { text: "my task", source: "interactive" })
+      await settle()
+      assert.equal(ctx.calls[0].options.reasoning, expected)
+      assert.deepEqual(ctx.calls[0].model, { provider: "other", id: "title-model" })
+      assert.equal(ctx.warnings.length, 0)
+      assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+    }
+  })
+})
+
+test("effort-only config keeps the session model", async () => {
+  await withConfig('{"effort":"low"}', async () => {
+    const { pi, fire } = fakePi()
+    const ctx = fakeCtx([])
+    install(pi)
+    fire("input", ctx, { text: "my task", source: "interactive" })
+    await settle()
+    assert.deepEqual(ctx.calls[0].model, ctx.model)
+    assert.equal(ctx.calls[0].options.reasoning, "low")
+    assert.equal(ctx.warnings.length, 0)
+    assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+  })
+})
+
+test("a missing session model keeps the prompt title and warns", async () => {
+  const { pi, fire } = fakePi()
+  const ctx = fakeCtx([])
+  ctx.model = undefined
+  install(pi)
+  fire("input", ctx, { text: "my task", source: "interactive" })
+  await settle()
+  assert.deepEqual(ctx.titles, ["my task"])
+  assert.equal(ctx.calls.length, 0)
+  assert.equal(ctx.warnings.length, 1)
+  assert.match(ctx.warnings[0].message, /no model/i)
+})
+
+test("warns and uses session defaults for malformed title configuration", async () => {
+  for (const raw of ["{", "null", "[]", '{"effort":"turbo"}', '{"model":"unpaired"}', '{"provider":" "}']) {
+    await withConfig(raw, async () => {
+      const { pi, fire } = fakePi()
+      const ctx = fakeCtx([])
+      install(pi)
+      fire("input", ctx, { text: "my task", source: "interactive" })
+      await settle()
+      assert.equal(ctx.warnings.length, 1, raw)
+      assert.equal(ctx.warnings[0].level, "warning")
+      assert.match(ctx.warnings[0].message, /task-title.*config/i)
+      assert.deepEqual(ctx.calls[0].model, ctx.model)
+      assert.equal(ctx.calls[0].options.reasoning, "high")
+      assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+    })
+  }
 })
