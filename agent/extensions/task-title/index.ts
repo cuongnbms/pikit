@@ -108,6 +108,7 @@ async function askModel(ctx: ExtensionContext, prompt: string, signal: AbortSign
       reasoning: selectedEffort === "off" ? undefined : selectedEffort,
       maxTokens: MODEL_MAX_TOKENS,
       cacheRetention: "none",
+      sessionId: ctx.sessionManager.getSessionId(),
       signal: AbortSignal.any([signal, AbortSignal.timeout(MODEL_TIMEOUT_MS)]),
     },
   ).result();

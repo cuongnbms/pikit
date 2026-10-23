@@ -140,7 +140,7 @@ const fakePi = () => {
   return { pi, fire: (event, ctx, payload) => handlers[event]?.({ type: event, ...payload }, ctx) }
 }
 
-const fakeCtx = (entries, { sessionName, answer, fail } = {}) => {
+const fakeCtx = (entries, { sessionName, sessionId = "title-session", answer, fail } = {}) => {
   const titles = []
   const calls = []
   const warnings = []
@@ -151,7 +151,7 @@ const fakeCtx = (entries, { sessionName, answer, fail } = {}) => {
     mode: "tui",
     model: { provider: "xai", id: "grok-4.6" },
     ui: { setTitle: (title) => titles.push(title), notify: (message, level) => warnings.push({ message, level }) },
-    sessionManager: { getEntries: () => entries, getSessionName: () => sessionName },
+    sessionManager: { getEntries: () => entries, getSessionName: () => sessionName, getSessionId: () => sessionId },
     modelRegistry: {
       streamSimple(model, context, options) {
         return { result: () => this.complete(model, context, options) }
@@ -439,6 +439,28 @@ test("uses the configured title model and effort without changing the session", 
     assert.equal(ctx.calls[0].options.reasoning, "low")
     assert.deepEqual(ctx.model, { provider: "xai", id: "grok-4.6" })
     assert.equal(ctx.titles.at(-1), "Dựng pipeline ingest")
+  })
+})
+
+test("title requests through an alias carry the current session ID, including after replacement", async () => {
+  await withConfig('{"provider":"alias","model":"fast"}', async () => {
+    const { pi, fire } = fakePi()
+    install(pi)
+    const first = fakeCtx([], { sessionId: "session-before-switch" })
+    first.modelRegistry.find = () => ({ provider: "alias", id: "fast" })
+    fire("input", first, { text: "my first task", source: "interactive" })
+    await settle()
+    assert.deepEqual(first.calls[0].model, { provider: "alias", id: "fast" })
+    assert.equal(first.calls[0].options.sessionId, "session-before-switch")
+    assert.equal(first.titles.at(-1), "Dựng pipeline ingest")
+
+    const next = fakeCtx([userEntry("my next task")], { sessionId: "session-after-switch" })
+    next.modelRegistry.find = first.modelRegistry.find
+    fire("session_start", next)
+    await settle()
+    assert.equal(next.calls[0].options.sessionId, "session-after-switch")
+    assert.equal(next.titles.at(-1), "Dựng pipeline ingest")
+    assert.deepEqual(next.warnings, [])
   })
 })
 
