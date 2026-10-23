@@ -11,6 +11,8 @@ on the session's first task instead of the same project name in every tab.
   language. By default it uses the session's current model and thinking effort at
   request start; both can be overridden below. This is an additional model request
   and may incur provider usage charges. The full first prompt is sent to that model.
+  The request includes the current session ID so providers such as OpenCode Go can
+  supply their required per-conversation routing header, including through model aliases.
 - Keeps the prompt title and shows a warning when the model is unavailable, fails,
   returns no usable text, or reaches the 45-second request timeout.
 - Leaves later prompts alone and restores the task title after Pi updates session info.
